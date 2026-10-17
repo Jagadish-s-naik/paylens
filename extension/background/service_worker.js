@@ -32,7 +32,7 @@ async function getOrCreateInstallId() {
     return newId;
   } catch (err) {
     console.error('[Paylens SW] Error getting/creating installId:', err);
-    return 'fallback-install-id';
+    return '00000000-0000-0000-0000-000000000000';
   }
 }
 

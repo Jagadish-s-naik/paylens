@@ -10,10 +10,10 @@
 
 export const CONFIG = {
   // Base URL for the FastAPI backend (local development or Cloud Run)
-  API_BASE: "http://localhost:8000",
+  API_BASE: "https://paylens-986743332275.asia-south1.run.app",
 
-  // Decoupling toggle: default true during parallel development
-  MOCK_API: true,
+  // Decoupling toggle: flipped to false for live backend integration
+  MOCK_API: false,
 
   // Default regional explanation language ('en', 'hi', 'kn')
   LANGUAGE: "en",

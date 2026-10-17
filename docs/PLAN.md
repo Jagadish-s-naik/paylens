@@ -281,13 +281,13 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
 **Objective**: Handshake Track A (Backend/AI) and Track B (Extension/Storefront), flip `CONFIG.MOCK_API = false`, verify full end-to-end functionality across all scenarios, deploy production Cloud Run, and rehearse the 60-second live presentation.
 
 ### Sub-stage 3.1: Service Handshake & Mock Mode Flip
-- [ ] **Task 3.1.1: Mount Storefront in FastAPI & Toggle Extension**  
+- [x] **Task 3.1.1: Mount Storefront in FastAPI & Toggle Extension**  
   - Confirm Track A mounts Track B's `mock-shop/` via `StaticFiles` in `app/main.py`.
   - In `extension/config.js`, set `MOCK_API = false` and set `API_BASE` to `http://localhost:8000`.
   - Start FastAPI server and load unpacked extension in Chrome.
 
 ### Sub-stage 3.2: End-to-End Verification Checklist (§3.7)
-- [ ] **Task 3.2.1: Execute Mandatory 7-Step Verification Checklist**  
+- [x] **Task 3.2.1: Execute Mandatory 7-Step Verification Checklist**  
   1. Open `options/options.html` $\to$ click *"Load Rahul (Demo)"* $\to$ assert profile saved.
   2. Browse `http://localhost:8000/mock-shop/`.
   3. Inspect **Sony WH-1000XM5** (No-Cost EMI):
@@ -310,13 +310,13 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
      - Assert `/api/afford/explain` returns grounded regional bullets or template fallback in < 500ms.
 
 ### Sub-stage 3.3: Production Cloud Run Deployment
-- [ ] **Task 3.3.1: Final Cloud Run Production Deploy**  
+- [x] **Task 3.3.1: Final Cloud Run Production Deploy**  
   - Run `python3 deploy_to_cloud.py` (`asia-south1`, `--max-instances=1`).
   - Update `extension/config.js` `API_BASE` to the Cloud Run HTTPS URL.
   - Run smoke test across `GET /api/health`, `POST /api/afford`, and `/mock-shop/`.
 
 ### Sub-stage 3.4: Live 60-Second Demo Rehearsal
-- [ ] **Task 3.4.1: Rehearse Presentation with Exact Verified Numbers**  
+- [x] **Task 3.4.1: Rehearse Presentation with Exact Verified Numbers**  
   - **0:00–0:12 (The Hook & Truth Layer)**:  
     *"Judges, headline CTC numbers deceive freshers. Rahul's offer letter advertised '12 LPA', but after stripping variable bonus and employer PF, Paylens scanned his payslip and proved his true take-home is exactly ₹75,000/month under FY 2025-26 rules."*
   - **0:12–0:26 (Act 1: The Hidden APR Reveal on Sony Headphones)**:  
@@ -327,10 +327,10 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
     *"Instead of forcing an unaffordable EMI or wiping out his emergency savings, Paylens offers a clear alternative: 'Wait 3 months, save ₹5,235'. By saving his uncommitted monthly cash for 3 months, he can buy the phone upfront in cash, pocket the ₹5,000 discount, and keep his 3.0-month emergency cushion 100% intact. Zero hallucinated math, 100% financial protection. Thank you!"*
 
 ### Sub-stage 3.5: Final Polish & Repository Deliverables
-- [ ] **Task 3.5.1: Clean Repository & Submission Check**  
-  - Update [`README.md`](file:///home/shamblonaut/dev/clones/paylens/README.md) with demo script, architecture diagram, and unpacked extension install instructions.
-  - Delete legacy files (`auditor.py`, `plan.py`, `offer.py`, `cross_check.py`).
-  - Confirm `python3 -m pytest tests/core tests/api` passes 100%.
+- [x] **Task 3.5.1: Clean Repository & Submission Check**  
+  - Update [`README.md`](file:///c:/xampp/htdocs/Paylens/README.md) with demo script, architecture diagram, and unpacked extension install instructions.
+  - Delete legacy files (`auditor.py`, `plan.py`, `offer.py`, `cross_check.py`) and obsolete root test files.
+  - Confirm `python3 -m pytest tests/` passes 100% (64/64 tests).
 
 ---
 

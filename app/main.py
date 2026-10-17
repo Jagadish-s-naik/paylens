@@ -77,7 +77,16 @@ app.add_exception_handler(Exception, generic_exception_handler)
 
 
 # ---------------------------------------------------------------------
-# 4. HEALTH ROUTE (§7.1)
+# ---------------------------------------------------------------------
+# 4. STATIC DIRECTORY SETUP & ROOT
+# ---------------------------------------------------------------------
+root_path = Path(__file__).resolve().parent.parent
+mock_shop_dir = root_path / "mock-shop"
+static_dir = root_path / "static"
+
+
+# ---------------------------------------------------------------------
+# 5. HEALTH ROUTE (§7.1)
 # ---------------------------------------------------------------------
 @app.get("/api/health", tags=["System"])
 @app.get("/health", tags=["System"], include_in_schema=False)
@@ -95,7 +104,7 @@ async def health_check():
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def serve_root():
     """Serves the Paylens web interface or documentation landing."""
-    static_index = root_path / "static" / "index.html"
+    static_index = static_dir / "index.html"
     if static_index.is_file():
         return HTMLResponse(content=static_index.read_text(encoding="utf-8"))
     return HTMLResponse(
@@ -114,7 +123,7 @@ async def serve_root():
 
 
 # ---------------------------------------------------------------------
-# 5. ROUTE REGISTRATION
+# 6. ROUTE REGISTRATION
 # ---------------------------------------------------------------------
 app.include_router(afford_router)
 app.include_router(profile_router)
@@ -122,14 +131,11 @@ app.include_router(listing_router)
 app.include_router(legacy_router)
 
 # ---------------------------------------------------------------------
-# 6. STATIC MOUNTS (Graceful for mock-shop & demo)
+# 7. STATIC MOUNTS (Graceful for mock-shop & demo)
 # ---------------------------------------------------------------------
-root_path = Path(__file__).resolve().parent.parent
-
-mock_shop_dir = root_path / "mock-shop"
 if mock_shop_dir.is_dir():
     app.mount("/mock-shop", StaticFiles(directory=str(mock_shop_dir), html=True), name="mock-shop")
 
-static_dir = root_path / "static"
 if static_dir.is_dir():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+

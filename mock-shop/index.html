@@ -675,6 +675,83 @@
     </div>
   </footer>
 
+  <!-- Presenter 60s Demo Teleprompter Floating Button & Dock -->
+  <button id="dock-toggle-btn" class="dock-toggle-btn" aria-label="Toggle 60s Demo Script Teleprompter" title="Open 60-Second Demo Teleprompter">
+    <span class="dock-toggle-icon">🎙️</span>
+    <span class="dock-toggle-text">60s Demo Script</span>
+    <span class="dock-toggle-badge">4 Acts</span>
+  </button>
+
+  <aside id="presenter-dock" class="presenter-dock" aria-label="60-Second Demo Teleprompter" hidden>
+    <div class="dock-header">
+      <div class="dock-title-group">
+        <span class="dock-pill">LIVE PROMPTER</span>
+        <h3 class="dock-title">60-Second Demo Teleprompter</h3>
+      </div>
+      <div class="dock-actions">
+        <button id="dock-timer-btn" class="dock-action-btn" title="Start / Reset 60s Timer">⏱️ <span id="dock-timer-display">00:00</span></button>
+        <button id="dock-close-btn" class="dock-close-btn" aria-label="Close teleprompter">✕</button>
+      </div>
+    </div>
+    
+    <div class="dock-body">
+      <!-- Act 0 -->
+      <article class="dock-act" data-act="0">
+        <header class="act-header">
+          <span class="act-time">0:00 - 0:10</span>
+          <span class="act-name">Act 0: The Hook</span>
+        </header>
+        <p class="act-script">
+          "E-commerce BNPL checkout is engineered to disguise true borrowing costs.
+          <strong>Paylens</strong> acts as a consumer financial guardian, analyzing real-time affordability, uncovering deceptive interest, and stress-testing budgets before checkout."
+        </p>
+      </article>
+
+      <!-- Act 1 -->
+      <article class="dock-act clickable-act" data-act="1" data-target="product-sony">
+        <header class="act-header">
+          <span class="act-time">0:10 - 0:25</span>
+          <span class="act-name">Act 1: Safe Purchase & Hidden EAR</span>
+          <span class="act-badge status-green">Sony WH-1000XM5</span>
+        </header>
+        <p class="act-script">
+          "Rahul makes <strong>₹75,000/mo</strong>. At <strong>₹29,990</strong>, this is marked <strong>🟢 COMFORTABLE</strong> (11.3% FOIR).
+          Notice the <em>'No-Cost EMI'</em>: processing fee ₹199 plus ₹2,000 lost cash discount creates an effective hidden <strong>30.74% EAR</strong>, costing <strong>₹2,235</strong> extra!
+          Paylens calculates an intelligent alternative: <em>Buy in Cash today</em> to save ₹2,235 while preserving <strong>₹1.22L (3.01 months)</strong> emergency cushion."
+        </p>
+        <div class="act-action-hint">👆 Click to view Sony scenario</div>
+      </article>
+
+      <!-- Act 2 -->
+      <article class="dock-act clickable-act" data-act="2" data-target="product-iphone">
+        <header class="act-header">
+          <span class="act-time">0:25 - 0:45</span>
+          <span class="act-name">Act 2: Stress-Test & Shock Defense</span>
+          <span class="act-badge status-yellow">iPhone 16 Pro</span>
+        </header>
+        <p class="act-script">
+          "Now Rahul switches to an iPhone 16 Pro at <strong>₹1,19,900</strong>.
+          Paylens immediately shifts to <strong>🟡 STRETCH</strong> (31.3% FOIR, ₹11,017 free cash).
+          Watch what happens under the <em>-20% income disruption stress-test</em>: Paylens warns of an instant <strong>-₹3,983 monthly deficit</strong>!
+          Instead of reckless debt, Paylens charts a safe alternative: <em>Save ₹15,000/mo for 3 months</em>, preserving a 3-month cushion and saving <strong>₹5,235</strong>."
+        </p>
+        <div class="act-action-hint">👆 Click to view iPhone scenario</div>
+      </article>
+
+      <!-- Act 3 -->
+      <article class="dock-act" data-act="3">
+        <header class="act-header">
+          <span class="act-time">0:45 - 1:00</span>
+          <span class="act-name">Act 3: Grounded AI & Close</span>
+        </header>
+        <p class="act-script">
+          "Paylens powers every recommendation through mathematical certainty: exact XIRR algorithms, zero hallucinations, grounded Gemini audit reports, and fully client-side cached profiles.
+          Paylens transforms checkout from debt traps to informed financial decisions."
+        </p>
+      </article>
+    </div>
+  </aside>
+
   <script src="shop.js"></script>
 </body>
 </html>

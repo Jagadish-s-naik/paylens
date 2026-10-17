@@ -183,7 +183,8 @@ export class PaylensCard {
       : (level === 'STRETCH' ? 'badge-stretch' : 'badge-risky');
 
     const badgeIcon = level === 'COMFORTABLE' ? '🟢' : (level === 'STRETCH' ? '🟡' : '🔴');
-    const badgeLabel = verdict.badge || `${badgeIcon} ${level}`;
+    const tierDesc = verdict.badge ? verdict.badge.replace(/^[🟢🟡🔴]\s*/, '') : '';
+    const badgeLabel = `${badgeIcon} ${level}${tierDesc ? ` • ${tierDesc}` : ''}`;
 
     const tc = verdict.true_cost || {};
     const ear = tc.effective_annual_rate ?? 0.0;
@@ -226,7 +227,7 @@ export class PaylensCard {
     const alternatives = verdict.alternatives || [];
     const altsHtml = alternatives.map((alt) => {
       const isFeas = alt.is_feasible !== false;
-      const rescoreBadge = alt.rescore_badge || (isFeas ? '🟢 Feasible' : '🔴 Infeasible');
+      const rescoreBadge = alt.rescore_badge || (isFeas ? '🟢 Feasible' : '🔴 Not possible today');
       const savedBadge = alt.money_saved > 0
         ? `<span class="alt-savings-tag">Saves ${PaylensCard.formatINR(alt.money_saved)}</span>`
         : '';

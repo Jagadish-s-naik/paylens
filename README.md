@@ -1,29 +1,42 @@
-# Paylens — First Paycheck Copilot
-> **"Understand your salary, decode your offer letters, and find out what you can actually afford."**
+# Paylens — Real-Time E-Commerce Affordability Copilot
+
+> **"Financial protection directly at checkout. Uncover deceptive EMI interest, stress-test your cash flow against income shocks, and get mathematically grounded purchase alternatives before you buy."**  
 > Built for the **Digital Campus Hack Sprint** at Yenepoya University (Powered by GeeksforGeeks, FinTech Theme).
 
-[![Google Cloud](https://img.shields.io/badge/Google_Cloud-Vertex_AI_%7C_Cloud_Run_%7C_Firestore-4285F4?logo=google-cloud&logoColor=white)](https://cloud.google.com)
+[![Google Cloud](https://img.shields.io/badge/Google_Cloud-Cloud_Run_%7C_Vertex_AI-4285F4?logo=google-cloud&logoColor=white)](https://cloud.google.com)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12%20%7C%20FastAPI-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Chrome Extension](https://img.shields.io/badge/Chrome_MV3-Open_Shadow_DOM-4285F4?logo=google-chrome&logoColor=white)](https://developer.chrome.com/docs/extensions/)
+[![Tests Passing](https://img.shields.io/badge/Tests-64%2F64%20Passing-brightgreen.svg)](https://pytest.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-
-**Live Production URL:** [https://paylens-986743332275.asia-south1.run.app](https://paylens-986743332275.asia-south1.run.app)
 
 ---
 
-## 💡 The Problem & The Solution
-Fresh graduates and first-time earners in India face high financial confusion:
-1. **The CTC Trap**: Headline CTC numbers look massive on paper (e.g., ₹14 LPA), but hide variable pay, joining bonus clawbacks, service bonds, and employer PF.
-2. **The New vs Old Tax Dilemma**: Choosing the wrong tax regime under FY 2025-26 rules can cost a fresher ₹50,000+ per year.
-3. **Deceptive "No-Cost EMI" Schemes**: BNPL & 0% EMI schemes secretly charge 24%+ annual interest by burying processing fees and stripping upfront cash discounts.
-4. **Payroll Silent Errors**: Sudden March TDS tax spikes happen without a pay rise due to missed proof deadlines; PF is often miscalculated.
-5. **Budget Guidance & Family Communication**: Freshers struggle to balance rent, savings, and explaining their finances to their parents back home.
+### 🌐 Live Production Deployments
 
-**Paylens** is the all-in-one First Paycheck Copilot:
-- 📄 **Module 1: Payslip Copilot** — Upload payslips with Gemini Vertex AI OCR, compare FY 2025-26 New vs Old tax slabs, view salary waterfall, and read 5-bullet briefings in English, Hindi, or Kannada.
-- 💼 **Module 2: Offer Letter Decoder & Comparer** — Convert CTC into guaranteed cash in hand, automatically expose 7 fresher traps, and run side-by-side Offer A vs Offer B scorecards.
-- 📷 **Module 3: Affordability Lens ("Snap & Decide")** — Instant traffic light verdict (🟢 Affordable / 🟡 Budget Stretch / 🔴 Don't Do It) on any price tag or EMI offer with salary burn and true APR solver.
-- 🔍 **Module 4: Payslip Auditor** — Month-over-month payroll discrepancy detector for March TDS jumps, PF base mismatches, and 1-click HR grievance email generator.
-- 🎯 **Module 5: Life Plan Mode** — 50-30-20 budget calibrated to Metro vs Tier-2 cities, 3-month emergency cushion runway, and a heartwarming 1-click WhatsApp "Explain to my parents" message in English, Hindi, and Kannada.
+| Component | Target URL |
+|---|---|
+| **Production API (Cloud Run)** | **[https://paylens-986743332275.asia-south1.run.app](https://paylens-986743332275.asia-south1.run.app)** |
+| **Flagship Demo Storefront** | **[https://paylens-986743332275.asia-south1.run.app/mock-shop/](https://paylens-986743332275.asia-south1.run.app/mock-shop/)** |
+| **Interactive OpenAPI Docs** | **[https://paylens-986743332275.asia-south1.run.app/docs](https://paylens-986743332275.asia-south1.run.app/docs)** |
+| **Health API** | **[https://paylens-986743332275.asia-south1.run.app/api/health](https://paylens-986743332275.asia-south1.run.app/api/health)** |
+
+---
+
+## 💡 The Problem & The Paylens Breakthrough
+
+Modern e-commerce checkout is engineered to disguise true borrowing costs:
+1. **The "0% No-Cost EMI" Illusion**: Lenders and e-commerce platforms bury mandatory processing fees and strip upfront instant cash discounts (₹2,000–₹5,000), turning advertised "0% interest" into hidden **24% to 36% Effective Annual Rates (EAR)**.
+2. **Fixed Obligation to Income (FOIR) Blindspots**: Consumers purchase multiple high-ticket items across different sites without realizing their monthly debt obligations have quietly crossed the danger threshold (>35%–40% of net take-home).
+3. **Cash-Flow Fragility**: Buyers fail to model sudden disruptions—a 20% salary cut or an acute March Q4 TDS tax deduction spike wipes out their free cash, triggering costly credit defaults.
+4. **AI Hallucinations in Financial Advice**: Generic LLMs hallucinate calculations, offering inaccurate advice without grounding in tax code or cash flow mathematics.
+
+### How Paylens Solves It
+**Paylens** is a **Manifest V3 Chrome Extension** backed by a **deterministic Python FastAPI microservice on Google Cloud Run**:
+- 🛡️ **In-Context Shadow DOM Verdict Card**: Injects directly below payment selectors on e-commerce storefronts without layout shift or styling interference.
+- 🧮 **Deterministic Mathematical Core (Zero LLM Math)**: Every rupee, tax bracket under FY 2025-26 rules, bisection IRR calculation, and emergency runway metric is computed with 100% mathematical precision.
+- ⚡ **Real-Time Debt & Shock Stress-Testing**: Dynamically models post-purchase Fixed Obligation to Income (FOIR) and stress-tests cash flow against salary cuts and March TDS deduction spikes.
+- 🎯 **Intelligent Alternative Engine**: Automatically re-scores alternatives (e.g., *"Wait 3 Months & Buy in Cash"* to pocket discounts and protect emergency savings).
+- 🧠 **Grounded Multilingual AI Explanations**: Uses Gemini 2.5 Flash through an enforceable Grounding Guard that rejects any response diverging from the deterministic numbers, falling back to instant regional templates in <500ms.
 
 ---
 
@@ -31,110 +44,179 @@ Fresh graduates and first-time earners in India face high financial confusion:
 
 ```mermaid
 flowchart TD
-    subgraph Client["📱 Unified Frontend (Neo-Skeuomorphic Bento UI)"]
-        UI["Web Browser (Vanilla JS + CSS + Chart.js)\n5 Core Modules via Dock & Pill Switcher"]
+    subgraph Browser["🖥️ Client Environment (Chrome Manifest V3)"]
+        Store["🛒 E-Commerce Storefront\n(Apex Electronics Mock Shop)"]
+        CS["🔌 Content Script (content.js)\n- DOM Observer & Price Extractor\n- Adapter Layer (adapter.js)"]
+        Card["📦 Injected Shadow DOM Card (card.js)\n- Mode: Open\n- Instant Reactive Verdicts\n- Interactive Language Pills"]
+        BG["⚙️ Background Service Worker (service_worker.js)\n- chrome.storage.local Profile Cache\n- API Gateway & Request Dispatcher"]
+        Popup["📱 Action Popup & Options Page\n- Quick Persona Switcher\n- Verified Take-Home Baseline"]
     end
 
-    subgraph GCP["☁️ Google Cloud Platform (asia-south1)"]
-        CR["🚀 Cloud Run (FastAPI Serverless Microservice)\n- Min Instances: 0 (Scale to Zero)\n- Max Instances: 3, 512Mi RAM"]
+    subgraph GCP["☁️ Google Cloud Platform (asia-south1: Mumbai)"]
+        CR["🚀 Google Cloud Run Microservice (FastAPI)\n- python:3.12-slim Container\n- Scales to Zero when Idle (₹0 Cost)"]
         
-        subgraph Engine["🧮 Deterministic Python Core (LLM NEVER DOES MATH)"]
-            TE["tax.py\nFY 2025-26 New vs Old Engine\nStd Deduction, 87A Rebate, Marginal Relief"]
-            EE["emi.py\nSafe EMI, Loan Annuity, & Bisection IRR Solver\nAffordability Lens Evaluation"]
-            OE["offer.py\nCTC to Monthly Cash Decoder\n7 Fresher Traps & A vs B Scorecard"]
-            AE["auditor.py\nMoM Payroll Anomaly Detector\nTDS Spikes & EPF Base Checks"]
-            PE["plan.py\n50-30-20 City-Calibrated Budget\nMultilingual Parent Letters (En/Hi/Kn)"]
+        subgraph CoreEngine["🧮 Deterministic Financial Engine (NO LLM ARITHMETIC)"]
+            IRR["irr.py\nBisection IRR Solver & Hidden EAR"]
+            TAX["tax.py\nFY 2025-26 Tax Engine (New vs Old)"]
+            STRESS["stress.py\nFOIR, Salary Cut & March TDS Shock"]
+            ALT["alternatives.py\nWait & Save / Cash Runway Optimizer"]
+            VAL["validate.py & oracle.py\nG1-G3 Profile Verification"]
         end
 
-        subgraph AI["🤖 Google Cloud AI & Data Services"]
-            VAI["🧠 Gemini 2.5 Flash on Vertex AI (us-central1)\n- Multimodal JSON Extraction (Payslips, Offers, Price Tags)\n- Natural Language Financial Briefings"]
-            FS[("🗄️ Cloud Firestore (Native Mode, asia-south1)\nAnonymous Session Analytics & Audit Logs")]
-            TR["🌐 Cloud Translation API\nCached UI Labels & Regional Dialects"]
+        subgraph AI["🤖 Google Vertex AI"]
+            GEM["🧠 Gemini 2.5 Flash\nNatural Language Explanations"]
+            GUARD["🛡️ Grounding Guard (grounding_guard.py)\nZero Math Hallucination Verification"]
         end
     end
 
-    UI -->|"HTTPS / REST JSON"| CR
-    CR --> TE
-    CR --> EE
-    CR --> OE
-    CR --> AE
-    CR --> PE
-    CR -->|"google-genai SDK (ADC)"| VAI
-    CR -->|"google-cloud-firestore"| FS
-    CR -->|"google-cloud-translate"| TR
+    Store <-->|"MutationObserver & DOM Events"| CS
+    CS <-->|"Shadow Root Mount"| Card
+    CS <-->|"chrome.runtime.sendMessage"| BG
+    Popup <-->|"Manage Financial Baseline"| BG
+    BG -->|"HTTPS / REST (FastAPI)"| CR
+    CR --> IRR
+    CR --> TAX
+    CR --> STRESS
+    CR --> ALT
+    CR --> VAL
+    CR -->|"POST /api/afford/explain"| GEM
+    GEM --> GUARD
+    GUARD -->|"Validated Regional Output"| CR
 ```
-
-### 🔒 Architectural Law: Zero Arithmetic by LLMs
-Gemini **only** extracts raw fields from images/PDFs into typed Pydantic models at `temperature=0.0`, and explains numbers in clear language.
-**Every rupee, tax bracket, IRR iteration, and audit discrepancy is calculated deterministically by Python engines with 100% unit test coverage.**
 
 ---
 
 ## 🧮 Core Financial Formulations
 
-### 1. New vs Old Tax Engine (FY 2025-26)
-- **New Tax Regime**: Standard deduction ₹75,000. Full rebate u/s 87A up to ₹12,00,000 taxable income with marginal relief.
-- **Old Tax Regime**: Standard deduction ₹50,000. Section 10(13A) HRA exemption:
-  $$\text{Exempt HRA} = \min(\text{Actual HRA}, \text{Rent} - 10\% \text{Basic}, 50\% \text{Basic (Metro)} \text{ or } 40\% \text{Basic (Non-metro)})$$
-  Section 80C capped at ₹1,50,000. 4% Health & Education Cess applied.
-
-### 2. No-Cost EMI True APR (Bisection IRR Solver)
-Finds periodic monthly rate $r$ such that Net Present Value equals zero:
-$$\text{Upfront Price} - \text{Discount} + \text{Fee} = \sum_{t=1}^{n} \frac{\text{EMI}}{(1+r)^t}$$
+### 1. Hidden APR & Effective Annual Rate (Bisection IRR Solver)
+When a merchant advertises "0% No-Cost EMI", the consumer forfeits an upfront cash discount $D$ and pays an upfront processing fee $F$. The true periodic monthly rate $r$ is solved deterministically using bisection root-finding on Net Present Value:
+$$\text{Upfront Price} - D + F = \sum_{t=1}^{n} \frac{\text{EMI}}{(1+r)^t}$$
 $$\text{Effective Annual Rate (EAR)} = (1 + r)^{12} - 1$$
+*Example*: On Sony WH-1000XM5 (₹29,990, 6-Month No-Cost EMI of ₹4,998/mo, ₹199 processing fee, ₹2,000 lost cash discount), Paylens computes an effective **30.74% EAR** and ₹2,235 markup!
 
-### 3. The 7 Fresher Traps Engine
-1. **Discretionary Variable Pay**: Flagged if variable pay > 15% of CTC.
-2. **Service Bond Penalty**: Flagged if company mandates a bond tenure with financial penalty.
-3. **Joining Bonus Clawback**: Flagged if 100% bonus is repayable upon exit within 12-24 months.
-4. **Employer PF Inside CTC**: Clarifies that 12% employer PF is deferred retirement savings, not take-home pay.
-5. **Gratuity Counted in CTC**: Highlights statutory 5-year continuous service rule before gratuity is payable.
-6. **Notice Period Buyout Risk**: Exposes 90-day notice burdens that deter future recruiters.
-7. **Paper Stock / ESOP Cliff**: Exposes 1-year vesting cliffs where departure leaves zero equity.
+### 2. Post-Purchase FOIR (Fixed Obligation to Income Ratio)
+$$\text{FOIR} = \frac{\text{Committed Active EMIs} + \text{Proposed New EMI}}{\text{Net Monthly Take-Home}} \times 100$$
+- 🟢 **COMFORTABLE**: $\text{FOIR} \le 35\%$, Emergency runway $\ge 3.0$ months, and uncommitted cash remains positive.
+- 🟡 **STRETCH**: $35\% < \text{FOIR} \le 50\%$, OR emergency runway between $1.5$ and $3.0$ months.
+- 🔴 **RISKY**: $\text{FOIR} > 50\%$, OR free cash becomes negative (monthly deficit), OR emergency runway $< 1.5$ months.
+
+### 3. Income Disruption & March TDS Stress Testing
+- **Acute Income Shock**: Simulates an immediate -20% salary cut:
+  $$\text{Free Cash}_{\text{shock}} = (\text{Take-Home} \times 0.80) - \text{Essentials} - \text{Existing EMIs} - \text{New EMI}$$
+- **March Q4 TDS Deductions**: Simulates Old Regime tax deduction spikes when investment/HRA proofs are unsubmitted, spreading unproven slab liabilities across Jan–Mar payroll.
+
+---
+
+## 🚀 Quickstart & Setup Guide
+
+### 1. Run Backend Locally (Optional)
+```powershell
+# Clone repository
+git clone https://github.com/Jagadish-s-naik/paylens.git
+cd paylens
+
+# Create virtual environment & install dependencies
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+
+# Start FastAPI server
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+Navigate to `http://127.0.0.1:8000/mock-shop/` to open the local storefront.
+
+### 2. Load the Unpacked Chrome Extension
+1. Open Google Chrome and go to `chrome://extensions/`.
+2. Enable **Developer mode** using the toggle switch in the top-right corner.
+3. Click the **Load unpacked** button.
+4. Select the `extension/` folder inside the `paylens/` project directory.
+5. Paylens is now active! Click the extension icon in your toolbar to inspect your profile or open options.
+
+### 3. Configure API Target
+By default, [`extension/config.js`](file:///c:/xampp/htdocs/Paylens/extension/config.js) is pre-configured to point directly to the live Google Cloud Run production deployment:
+```javascript
+export const CONFIG = {
+  API_BASE: "https://paylens-986743332275.asia-south1.run.app",
+  MOCK_API: false,
+  DEFAULT_LANGUAGE: "EN"
+};
+```
+To point to your local backend, change `API_BASE` to `"http://127.0.0.1:8000"`.
+
+---
+
+## 🧪 Comprehensive Verification & Test Suite
+
+### Full Automated Pytest Suite (64/64 Passing)
+All 64 unit and integration tests across core financial math, API routes, and AI grounding pass with 100% reliability:
+```powershell
+$env:PYTHONIOENCODING='utf-8'; .\.venv\Scripts\python.exe -m pytest tests/
+```
+
+| Test Module | Test Focus | Status |
+|---|---|:---:|
+| `tests/core/test_irr.py` | Bisection IRR solver, No-Cost EMI APR, lost discounts, fee handling | ✅ Passed (4/4) |
+| `tests/core/test_tax.py` | FY 2025-26 New vs Old slabs, 87A rebate, marginal relief, Metro HRA | ✅ Passed (5/5) |
+| `tests/core/test_stress.py` | FOIR calculation, salary cut disruption, March TDS spike | ✅ Passed (3/3) |
+| `tests/core/test_alternatives.py` | Wait & Save optimizer, upfront cash savings, runway protection | ✅ Passed (2/2) |
+| `tests/core/test_validate.py` | G1-G3 financial sanity checks, essential bounds | ✅ Passed (4/4) |
+| `tests/core/test_oracle.py` | Golden profile take-home baselines (Rahul, Amit, Vikram) | ✅ Passed (4/4) |
+| `tests/core/test_engine.py` | Full decision matrix synthesis, traffic light categorization | ✅ Passed (4/4) |
+| `tests/core/test_architecture.py` | Boundary enforcement: zero AI imports in deterministic core | ✅ Passed (2/2) |
+| `tests/api/test_routes_afford.py` | Affordability evaluation API, CORS, payload validation | ✅ Passed (8/8) |
+| `tests/api/test_routes_profile.py` | Client profile retrieval, sync, and validation | ✅ Passed (5/5) |
+| `tests/api/test_routes_listing.py` | Storefront mock product listings & payment options | ✅ Passed (2/2) |
+| `tests/api/test_errors.py` | Strict UUID validation, 422 schema errors, 500 fallbacks | ✅ Passed (8/8) |
+| `tests/api/test_integration_handshake.py` | Cross-service handshake, live mount verification | ✅ Passed (8/8) |
+| `tests/ai/test_grounding_guard.py` | Gemini grounding guard, regex verification, anti-hallucination | ✅ Passed (5/5) |
+
+---
+
+## 🎤 60-Second Live Hackathon Pitch Script
+
+An automated CLI coach validates all 14 spoken numbers in real time against live system APIs:
+```powershell
+$env:PYTHONIOENCODING='utf-8'; .\.venv\Scripts\python.exe scripts/rehearse_demo.py --auto
+```
+
+### **Act 0: The Hook & Truth Layer (0:00 – 0:12)**
+> *"Judges, headline CTC numbers deceive freshers. Rahul's offer letter advertised '12 LPA', but after stripping variable bonus and employer PF, Paylens scanned his payslip and proved his true take-home is exactly ₹75,000/month under FY 2025-26 rules."*
+- **Visual Cue**: Show Options Page (`options.html`) with Rahul active; cursor highlights *Verified Take-Home: ₹75,000.00/mo*.
+
+### **Act 1: Safe Purchase & Hidden EAR Reveal (0:12 – 0:26)**
+> *"Rahul browses our electronics store to buy Sony WH-1000XM5 headphones (₹29,990) on a '0% No-Cost EMI' for ₹4,998/month. The Paylens extension triggers immediately: While budget-comfortable (FOIR 11.3%), Paylens reveals a 🔴 **30.74% Hidden EAR**! Taking No-Cost EMI forfeits a ₹2,000 cash discount and incurs processing fees, losing ₹2,235 in markup. Buying in cash preserves his ₹1.22L emergency cushion."*
+- **Visual Cue**: Show Tab 1 on storefront; highlight the Crimson Callout *⚠️ High APR Financing Alert (30.74% EAR)* and cash alternative saving ₹2,235.
+
+### **Act 2: Stress-Test Reality Check on iPhone 16 Pro (0:26 – 0:42)**
+> *"Next, Rahul views the iPhone 16 Pro (₹1,19,900) on 6-month EMI at ₹19,983/month. Paylens shifts to 🟡 **Budget Stretch**! Look at the cash-flow impact: Debt ratio jumps to 31.3%, and free cash drops to just ₹11,017. Worse, an income stress test (-20% cut) triggers an immediate deficit of -₹3,983/month!"*
+- **Visual Cue**: Switch to Tab 2 on storefront; cursor points to *Fails Shock (-₹3,983)* in the stress-test table.
+
+### **Act 3: The Honest Alternative & Close (0:42 – 1:00)**
+> *"Instead of forcing an unaffordable EMI or wiping out his emergency savings, Paylens offers a clear alternative: 'Wait 3 months, save ₹5,235'. By saving his uncommitted monthly cash for 3 months, he can buy the phone upfront in cash, pocket the ₹5,000 discount, and keep his 3.0-month emergency cushion 100% intact. Zero hallucinated math, 100% financial protection. Thank you!"*
+- **Visual Cue**: Point to *Wait 3 Months & Buy in Cash* card; click language toggle (HI / KN) for instant grounded regional briefing.
 
 ---
 
 ## 💰 Cost Control: ₹0 Out-of-Pocket Spend
-Paylens is strictly architected within Google Cloud free tiers:
-- **Cloud Run**: Min-instances 0 (scales to 0 when idle), 512Mi RAM.
-- **Cloud Firestore**: Native mode in `asia-south1`, strictly bounded reads/writes.
-- **Cloud Translation API**: Pre-cached in Python memory, 0 external API cost on repeated loads.
-- **Gemini on Vertex AI**: `gemini-2.5-flash` with strict token bounding (`max_output_tokens=2048`), daily circuit breaker (300 calls/day), and IP rate limiters (20 requests/hour).
+
+Paylens is built to run entirely within Google Cloud free tiers:
+- **Cloud Run Serverless**: Configured with `--min-instances=0` (scales to zero when idle) and `--max-instances=1` (512Mi RAM).
+- **Google Vertex AI**: `gemini-2.5-flash` with strict token limits (`max_output_tokens=1024`) and caching for regional dialects.
+- **Client-Side Profile Storage**: Uses `chrome.storage.local` on the user's device, eliminating expensive remote database writes.
 
 ---
 
-## 🧪 Comprehensive Test Suite (27/27 Tests Passing)
-Run deterministic unit tests locally:
-```bash
-.\.venv\Scripts\pytest -o pythonpath=. -v
-```
-Test categories covered:
-- `tests/test_tax.py`: 10L, 12L, 15L sanity checks, 87A rebate, marginal relief, Metro HRA exemption.
-- `tests/test_emi.py`: Safe EMI 35% ratio, 36-month loan capacity, bisection IRR true-zero vs hidden interest.
-- `tests/test_offer.py`: 7 fresher traps detection, Offer A vs Offer B cash comparison.
-- `tests/test_auditor.py`: Month-over-month TDS spikes, EPF wage base compliance.
-- `tests/test_plan.py`: Metro vs Tier-2 50-30-20 splits, Hindi/Kannada parent letter generation.
-- `tests/test_api.py`: End-to-end FastAPI endpoint integration tests.
+## 👥 Demo Personas Reference
+
+| Persona | Profile & Income | Scenario & Product | Paylens Verdict & Insight |
+|---|---|---|---|
+| **Rahul Sharma** (Fresher) | ₹75,000/mo Take-Home<br>₹1.5L Savings, Metro Rent | Sony WH-1000XM5<br>₹29,990 (No-Cost EMI) | 🟢 **COMFORTABLE** (11.3% FOIR)<br>Exposes 🔴 **30.74% Hidden EAR** (saves ₹2,235 in cash). |
+| **Rahul Sharma** (Fresher) | ₹75,000/mo Take-Home<br>₹1.5L Savings, Metro Rent | Apple iPhone 16 Pro<br>₹1,19,900 (6M EMI) | 🟡 **STRETCH** (31.3% FOIR)<br>Fails -20% income cut (-₹3,983 deficit); recommends *"Wait 3 Months & Buy in Cash"*. |
+| **Amit Verma** (Entry Tech) | ₹40,000/mo Take-Home<br>₹25,000 Savings, 2 Active EMIs | ASUS ROG Strix G16<br>₹1,45,000 (12M EMI) | 🔴 **RISKY** (45.2% FOIR)<br>Immediate -₹2,400 monthly deficit; cash not possible today; recommends emergency fund first. |
+| **Vikram Malhotra** (Senior) | ₹1,65,000/mo Take-Home<br>Old Tax Regime, ₹4.5L Savings | Apple iPhone 16 Pro<br>₹1,19,900 | 🟡 **STRETCH**<br>Fails March TDS Shock: *"₹127,800 March tax deduction spike"* due to unsubmitted proofs. |
 
 ---
 
-## 🎤 Hackathon 3-Minute Presentation Script
-
-### **Minute 1: The Problem & The Fresher Trap (Hook)**
-> *"Judges, when a fresher signs their first offer letter, they see '14 LPA' and think they've made it. Then they receive their first paycheck and find out their take-home is barely ₹54,000! Where did the money go?*
-> *It went to 25% variable pay, employer PF counted inside CTC, and a 2-year service bond with a ₹2 lakh penalty.*
-> *This is **Paylens** — the First Paycheck Copilot built on Google Cloud that protects young earners from financial traps."*
-
-### **Minute 2: Live Demo — Offer Decoder & Affordability Lens**
-> *(Module 1 & 2 Demo)* *"Watch: We decode an offer letter. Paylens calculates the real cash ratio (57%) and instantly flags 5 fresher traps with red badges. When we compare Offer A (14 LPA paper-heavy) against Offer B (11 LPA clean cash), Paylens proves that Offer B gives ₹14,000 MORE cash in hand every month!*
-> *(Module 3 Demo)* *"Now, can this fresher buy the new iPhone 16 Pro on a 'No-Cost EMI'? We click the preset — Paylens runs a bisection IRR solver and shows a RED BANNER: 24.8% hidden APR! By taking EMI instead of upfront cash, you forfeit discounts and pay processing fees. That's higher than a personal bank loan."*
-
-### **Minute 3: MoM Auditor, Life Plan, & ₹0 Cloud Engineering**
-> *(Module 4 & 5 Demo)* *"Next, look at our Payslip Auditor: It detects a sudden +₹12,000 March TDS spike caused by missing 80C proofs and drafts a ready-to-send grievance email to HR.*
-> *Finally, Life Plan Mode calibrates a 50-30-20 budget for Bangalore, builds a 3-month emergency safety net, and with 1 click generates an emotional WhatsApp update for their parents in native Hindi or Kannada.*
-> *Every calculation is 100% deterministic Python. Gemini 2.5 Flash extracts the data, Cloud Run scales to zero, and the entire app costs ₹0 to host on Google Cloud. Thank you!"*
-
----
-
-## 📜 License
-MIT License. Built with ❤️ for Yenepoya University Digital Campus Hack Sprint.
+## 📜 License & Acknowledgments
+Released under the **MIT License**.  
+Built with ❤️ for the **Digital Campus Hack Sprint** at Yenepoya University (Powered by GeeksforGeeks).
