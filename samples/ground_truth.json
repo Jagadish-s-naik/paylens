@@ -1,0 +1,52 @@
+{
+  "sample_1_demo_user.pdf": {
+    "gross_monthly": 80000.0,
+    "basic": 40000.0,
+    "hra": 20000.0,
+    "special_allowance": 16000.0,
+    "pf_employee": 4800.0,
+    "professional_tax": 200.0,
+    "tds": 3000.0,
+    "net_pay": 72000.0
+  },
+  "sample_2_fintech_startup.png": {
+    "gross_monthly": 125000.0,
+    "basic": 60000.0,
+    "hra": 30000.0,
+    "special_allowance": 25000.0,
+    "pf_employee": 7200.0,
+    "professional_tax": 200.0,
+    "tds": 8500.0,
+    "net_pay": 109100.0
+  },
+  "sample_3_it_consulting.pdf": {
+    "gross_monthly": 50000.0,
+    "basic": 25000.0,
+    "hra": 12500.0,
+    "special_allowance": 10000.0,
+    "pf_employee": 3000.0,
+    "professional_tax": 200.0,
+    "tds": 0.0,
+    "net_pay": 46800.0
+  },
+  "sample_4_lead_engineer.png": {
+    "gross_monthly": 210000.0,
+    "basic": 100000.0,
+    "hra": 50000.0,
+    "special_allowance": 45000.0,
+    "pf_employee": 12000.0,
+    "professional_tax": 200.0,
+    "tds": 28000.0,
+    "net_pay": 169800.0
+  },
+  "sample_5_photo_payslip.jpg": {
+    "gross_monthly": 70000.0,
+    "basic": 35000.0,
+    "hra": 17500.0,
+    "special_allowance": 14000.0,
+    "pf_employee": 4200.0,
+    "professional_tax": 200.0,
+    "tds": 1500.0,
+    "net_pay": 64100.0
+  }
+}

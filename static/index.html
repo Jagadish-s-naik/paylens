@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paylens — First Paycheck Copilot</title>
+  <meta name="description" content="Understand your salary, compare Indian tax regimes, and reveal hidden interest in No-Cost EMIs. Powered by Google Cloud & Gemini.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Left Navigation Pill Dock (Reference Design) -->
+    <aside class="sidebar-dock" aria-label="Navigation Dock">
+      <div class="dock-top">
+        <div class="dock-logo" title="Paylens Logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 7v10M8 10h8M9 14h6"/>
+          </svg>
+        </div>
+        <nav class="dock-nav">
+          <button id="nav-btn-payslip" class="dock-btn active" title="1. Payslip Copilot" onclick="switchModule('payslip')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+          </button>
+          <button id="nav-btn-offer" class="dock-btn" title="2. Offer Letter Decoder & Comparer" onclick="switchModule('offer')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+            </svg>
+          </button>
+          <button id="nav-btn-lens" class="dock-btn" title="3. Affordability Lens (Snap & Decide)" onclick="switchModule('lens')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          </button>
+          <button id="nav-btn-auditor" class="dock-btn" title="4. Payslip Auditor (MoM Anomaly)" onclick="switchModule('auditor')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </button>
+          <button id="nav-btn-lifeplan" class="dock-btn" title="5. Life Plan Mode & WhatsApp Letter" onclick="switchModule('lifeplan')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+          </button>
+        </nav>
+      </div>
+      <div class="dock-bottom">
+        <button id="assumptions-toggle-btn" class="dock-btn" title="Assumptions & Tax Slabs" onclick="toggleAssumptions()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-dashboard">
+      <!-- Top Bar -->
+      <header class="top-header">
+        <div class="header-left">
+          <div class="brand-tag">FinTech Copilot • Yenepoya Sprint</div>
+          <h1 id="greeting-text" class="greeting">Hello, <span class="highlight-name" id="user-display-name">Fresher</span></h1>
+          <p id="tagline-text" class="tagline">Understand your salary, then find out what you can actually afford.</p>
+        </div>
+        <div class="header-right">
+          <!-- Language Selector -->
+          <div class="lang-selector">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="2" y1="12" x2="22" y2="12"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+            <select id="language-select" onchange="changeLanguage(this.value)" aria-label="Select Language">
+              <option value="en" selected>English</option>
+              <option value="hi">हिन्दी (Hindi)</option>
+              <option value="kn">ಕನ್ನಡ (Kannada)</option>
+            </select>
+          </div>
+          <!-- Vertex AI Cloud Status Pill -->
+          <div class="status-pill" title="Live Google Cloud Architecture">
+            <span class="status-dot"></span>
+            <span>Gemini on Vertex AI</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- 5-Core Feature Modules Pill Bar -->
+      <nav class="module-nav-bar" aria-label="Feature Modules">
+        <button class="module-pill active" id="pill-mod-payslip" onclick="switchModule('payslip')">
+          <span class="pill-icon">📄</span> <span>Payslip Copilot</span>
+        </button>
+        <button class="module-pill" id="pill-mod-offer" onclick="switchModule('offer')">
+          <span class="pill-icon">💼</span> <span>Offer Decoder & Comparer</span>
+        </button>
+        <button class="module-pill" id="pill-mod-lens" onclick="switchModule('lens')">
+          <span class="pill-icon">📷</span> <span>Affordability Lens</span>
+        </button>
+        <button class="module-pill" id="pill-mod-auditor" onclick="switchModule('auditor')">
+          <span class="pill-icon">🔍</span> <span>Payslip Auditor</span>
+        </button>
+        <button class="module-pill" id="pill-mod-lifeplan" onclick="switchModule('lifeplan')">
+          <span class="pill-icon">🎯</span> <span>Life Plan Mode</span>
+        </button>
+      </nav>
+
+      <!-- MODULE 1: PAYSLIP COPILOT -->
+      <div id="module-payslip" class="module-view active">
+        <!-- Step Navigation Indicators -->
+        <div class="step-progress-bar">
+          <div class="step-chip active" id="chip-step-1" onclick="switchStep(1)">
+            <span class="chip-num">1</span> <span class="chip-label" id="label-step1">Upload & Details</span>
+          </div>
+          <div class="step-chip" id="chip-step-2" onclick="switchStep(2)">
+            <span class="chip-num">2</span> <span class="chip-label" id="label-step2">Tax & Salary Review</span>
+          </div>
+          <div class="step-chip" id="chip-step-3" onclick="switchStep(3)">
+            <span class="chip-num">3</span> <span class="chip-label" id="label-step3">Affordability & EMI</span>
+          </div>
+        </div>
+
+        <!-- STEP 1: UPLOAD & INPUTS -->
+        <section id="step-section-1" class="step-view active">
+        <div class="bento-grid">
+          <!-- Upload Dropzone Card -->
+          <div class="bento-card card-upload">
+            <div class="card-head">
+              <h2 id="lbl-upload-heading">Upload Your Salary Payslip</h2>
+              <span class="pill-badge">AI Powered</span>
+            </div>
+            <p class="card-sub" id="lbl-upload-sub">PDF, PNG, or JPG (up to 5MB). Camera photo snapshots supported.</p>
+
+            <div class="dropzone" id="dropzone" onclick="document.getElementById('file-input').click()">
+              <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg" style="display:none" onchange="handleFileSelect(event)">
+              <div class="dropzone-inner">
+                <div class="upload-icon-circle">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                </div>
+                <p class="dropzone-text" id="dropzone-prompt">Drag & drop your payslip here, or <span class="link-text">browse files</span></p>
+                <span class="file-hint" id="selected-file-name">No file selected</span>
+              </div>
+            </div>
+
+            <div class="upload-actions">
+              <button id="btn-analyze-upload" class="btn-primary" onclick="uploadAndExtract()" disabled>
+                <span id="btn-extract-text">Analyze Payslip with Paylens AI</span>
+              </button>
+              <button id="btn-try-sample" class="btn-secondary" onclick="loadSamplePayslip()">
+                <span>⚡ Try Sample Payslip (Acme Tech)</span>
+              </button>
+            </div>
+
+            <!-- Loading Spinner State -->
+            <div id="loading-state" class="loading-overlay hidden">
+              <div class="spinner"></div>
+              <p id="loading-msg">Extracting salary components with Gemini 2.5 Flash on Vertex AI...</p>
+            </div>
+          </div>
+
+          <!-- Housing & Existing Obligations Card -->
+          <div class="bento-card card-inputs">
+            <div class="card-head">
+              <h2>Housing & Deductions</h2>
+              <span class="pill-badge">HRA & EMI</span>
+            </div>
+            <p class="card-sub">Used for Section 10(13A) HRA exemption and safe EMI capacity.</p>
+
+            <div class="form-group">
+              <label for="input-rent" id="lbl-rent">Monthly Rent Paid (₹)</label>
+              <div class="input-with-icon">
+                <span class="currency-symbol">₹</span>
+                <input type="number" id="input-rent" value="15000" min="0" step="500">
+              </div>
+            </div>
+
+            <div class="form-group toggle-group">
+              <div class="toggle-info">
+                <label for="toggle-metro" id="lbl-metro">Metro City Living</label>
+                <span class="sub-hint">Mumbai, Delhi, Kolkata, Chennai (50% HRA cap vs 40%)</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="toggle-metro" checked>
+                <span class="slider round"></span>
+              </label>
+            </div>
+
+            <div class="form-group">
+              <label for="input-existing-emi" id="lbl-existing-emi">Existing Monthly EMIs (₹)</label>
+              <div class="input-with-icon">
+                <span class="currency-symbol">₹</span>
+                <input type="number" id="input-existing-emi" value="0" min="0" step="500">
+              </div>
+              <span class="sub-hint">Bike loans, education loans, or credit card installments.</span>
+            </div>
+
+            <div class="form-group">
+              <label for="input-other-80c" id="lbl-other-80c">Other 80C Investments (Annual ₹)</label>
+              <div class="input-with-icon">
+                <span class="currency-symbol">₹</span>
+                <input type="number" id="input-other-80c" value="0" min="0" step="5000">
+              </div>
+              <span class="sub-hint">ELSS mutual funds, PPF, Life insurance (Capped at ₹1.5L with EPF).</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 2: REVIEW & TAX REGIME COMPARISON -->
+      <section id="step-section-2" class="step-view">
+        <!-- Top Bento Row: Virtual Salary Card + Tax Savings Metric + Arc Gauge -->
+        <div class="hero-bento-row">
+          <!-- Virtual Salary Card (Reference Image Style) -->
+          <div class="virtual-card">
+            <div class="card-brand-row">
+              <span class="card-chip-icon"></span>
+              <span class="card-logo-text">PAYLENS SALARY</span>
+            </div>
+            <div class="card-number-dots">•••• •••• •••• 2026</div>
+            <div class="card-amount-block">
+              <span class="card-amount-lbl">NET IN-HAND SALARY</span>
+              <span class="card-amount-val" id="card-takehome-val">₹72,000</span>
+            </div>
+            <div class="card-holder-row">
+              <span class="card-holder-name" id="card-emp-name">DEMO USER</span>
+              <span class="card-period-tag" id="card-period-val">MARCH 2026</span>
+            </div>
+          </div>
+
+          <!-- Total Monthly Take-Home & Stat Card -->
+          <div class="bento-card card-stat-highlight">
+            <div class="card-head">
+              <span class="stat-category">Income Summary</span>
+              <span id="regime-badge" class="badge-saving">Save ₹62,920/yr with NEW</span>
+            </div>
+            <div class="stat-big-val" id="stat-monthly-takehome">₹72,000<span class="stat-period">/month</span></div>
+            <div class="stat-compare-row">
+              <span class="compare-tag">Gross: <strong id="stat-gross-val">₹80,000</strong></span>
+              <span class="compare-tag">Total Tax: <strong id="stat-tax-val">₹0.00</strong></span>
+            </div>
+            <div class="stat-progress-container">
+              <div class="bar-labels">
+                <span>In-Hand Ratio</span>
+                <span id="stat-inhand-pct">90%</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" id="stat-progress-bar" style="width: 90%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Actions / Hike Simulator Preview Card -->
+          <div class="bento-card card-hike-preview">
+            <div class="card-head">
+              <h3>Hike Simulator 🚀</h3>
+              <span class="pill-badge">Live Preview</span>
+            </div>
+            <p class="card-sub">What if you get a raise?</p>
+            <div class="hike-slider-row">
+              <input type="range" id="hike-slider" min="0" max="50" value="15" step="5" oninput="updateHikeSimulation(this.value)">
+              <span class="hike-val-badge" id="hike-slider-val">+15% Raise</span>
+            </div>
+            <div class="hike-results-row">
+              <div class="hike-metric">
+                <span class="metric-label">New Take-Home</span>
+                <span class="metric-val" id="hike-new-takehome">₹81,800</span>
+              </div>
+              <div class="hike-metric">
+                <span class="metric-label">New Safe EMI</span>
+                <span class="metric-val text-success" id="hike-new-safe-emi">₹28,630</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Regime Comparison Bento Row -->
+        <div class="bento-grid regime-grid">
+          <!-- New Regime Card -->
+          <div class="bento-card regime-card" id="card-new-regime">
+            <div class="card-head">
+              <div>
+                <h3 id="lbl-new-regime">New Tax Regime</h3>
+                <span class="sub-hint">Default FY 2025-26 • ₹75k Std Deduction</span>
+              </div>
+              <span class="recommended-badge" id="badge-new-rec">BEST CHOICE</span>
+            </div>
+            <div class="regime-metric-block">
+              <span class="regime-lbl">Annual Tax</span>
+              <span class="regime-val" id="new-annual-tax">₹0</span>
+            </div>
+            <div class="regime-metric-block">
+              <span class="regime-lbl">Monthly In-Hand</span>
+              <span class="regime-val highlight" id="new-monthly-takehome">₹72,000</span>
+            </div>
+            <div class="regime-details-list">
+              <div class="detail-line"><span>Standard Deduction:</span> <strong>₹75,000</strong></div>
+              <div class="detail-line"><span>Section 87A Rebate:</span> <strong class="text-success">Zero Tax up to ₹12L</strong></div>
+            </div>
+          </div>
+
+          <!-- Old Regime Card -->
+          <div class="bento-card regime-card" id="card-old-regime">
+            <div class="card-head">
+              <div>
+                <h3 id="lbl-old-regime">Old Tax Regime</h3>
+                <span class="sub-hint">With HRA, 80C & 80D Deductions</span>
+              </div>
+              <span class="recommended-badge hidden" id="badge-old-rec">BEST CHOICE</span>
+            </div>
+            <div class="regime-metric-block">
+              <span class="regime-lbl">Annual Tax</span>
+              <span class="regime-val" id="old-annual-tax">₹62,920</span>
+            </div>
+            <div class="regime-metric-block">
+              <span class="regime-lbl">Monthly In-Hand</span>
+              <span class="regime-val highlight" id="old-monthly-takehome">₹66,757</span>
+            </div>
+            <div class="regime-details-list">
+              <div class="detail-line"><span>HRA Exemption:</span> <strong id="old-hra-exempt">₹1,80,000</strong></div>
+              <div class="detail-line"><span>80C PF Deduction:</span> <strong id="old-80c-deduct">₹57,600</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Editable Payslip Review Form & Salary Waterfall Chart -->
+        <div class="bento-grid">
+          <!-- Editable Fields Form -->
+          <div class="bento-card card-review-form">
+            <div class="card-head">
+              <h3 id="lbl-review-heading">Verified Salary Breakdown</h3>
+              <button class="btn-sm" onclick="recalculateAll()">Recompute</button>
+            </div>
+            <div class="verify-alert-note" id="lbl-verify-note">
+              <span>⚠️</span> Please verify values printed on your payslip. Edit any field below to update tax calculations live.
+            </div>
+
+            <div class="form-columns-2">
+              <div class="form-group">
+                <label>Gross Monthly (₹)</label>
+                <input type="number" id="edit-gross" value="80000" onchange="recalculateAll()">
+              </div>
+              <div class="form-group">
+                <label>Basic Salary (₹)</label>
+                <input type="number" id="edit-basic" value="40000" onchange="recalculateAll()">
+              </div>
+              <div class="form-group">
+                <label>HRA (₹)</label>
+                <input type="number" id="edit-hra" value="20000" onchange="recalculateAll()">
+              </div>
+              <div class="form-group">
+                <label>Special Allowance (₹)</label>
+                <input type="number" id="edit-special" value="16000" onchange="recalculateAll()">
+              </div>
+              <div class="form-group">
+                <label>EPF Employee (₹)</label>
+                <input type="number" id="edit-pf" value="4800" onchange="recalculateAll()">
+              </div>
+              <div class="form-group">
+                <label>Professional Tax (₹)</label>
+                <input type="number" id="edit-pt" value="200" onchange="recalculateAll()">
+              </div>
+              <div class="form-group">
+                <label>TDS / Income Tax (₹)</label>
+                <input type="number" id="edit-tds" value="3000" onchange="recalculateAll()">
+              </div>
+              <div class="form-group">
+                <label>Other Deductions (₹)</label>
+                <input type="number" id="edit-other-ded" value="0" onchange="recalculateAll()">
+              </div>
+            </div>
+          </div>
+
+          <!-- Chart.js Waterfall Container -->
+          <div class="bento-card card-chart">
+            <div class="card-head">
+              <h3 id="lbl-chart-title">Monthly Salary Flow</h3>
+              <span class="sub-hint">Gross to In-Hand</span>
+            </div>
+            <div class="chart-canvas-wrapper">
+              <canvas id="salaryChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gemini 5-Bullet Plain Language Financial Briefing -->
+        <div class="bento-card briefing-card">
+          <div class="card-head">
+            <div class="briefing-title-group">
+              <div class="gemini-sparkle-icon">✦</div>
+              <div>
+                <h3 id="lbl-ai-briefing">Paylens AI 5-Bullet Financial Briefing</h3>
+                <span class="sub-hint">Synthesized with Gemini 2.5 Flash on Vertex AI (Strict deterministic numbers)</span>
+              </div>
+            </div>
+          </div>
+          <ul class="briefing-list" id="briefing-bullets-list">
+            <li>Loading briefing...</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- STEP 3: AFFORDABILITY & NO-COST EMI TRUTH -->
+      <section id="step-section-3" class="step-view">
+        <div class="bento-grid">
+          <!-- Safe EMI Calculator Card -->
+          <div class="bento-card card-safe-emi">
+            <div class="card-head">
+              <h3 id="lbl-safe-emi-title">Safe Monthly EMI Calculator</h3>
+              <span class="pill-badge text-success">35% Standard</span>
+            </div>
+            <p class="card-sub">Determines what you can actually afford without risking rent, bills, and emergency savings.</p>
+
+            <div class="emi-slider-block">
+              <div class="slider-header-row">
+                <label id="lbl-ratio-slider">EMI to Income Ratio:</label>
+                <span class="slider-val-tag" id="ratio-display-val">35%</span>
+              </div>
+              <input type="range" id="slider-emi-ratio" min="20" max="50" value="35" step="1" oninput="updateSafeEMIFromSlider(this.value)">
+              <div class="slider-bounds">
+                <span>Conservative (20%)</span>
+                <span>Recommended (35%)</span>
+                <span>Aggressive (50%)</span>
+              </div>
+            </div>
+
+            <div class="safe-emi-result-display">
+              <span class="res-sub">Recommended Safe Monthly EMI</span>
+              <span class="res-big" id="safe-emi-display">₹25,200</span>
+              <span class="res-note" id="safe-emi-math-note">(₹72,000 take-home × 35%) - ₹0 existing EMIs</span>
+            </div>
+
+            <div class="loan-capacity-box">
+              <div class="capacity-header">
+                <span>Supported Loan Capacity</span>
+                <strong id="loan-cap-val">₹5,30,000</strong>
+              </div>
+              <p class="capacity-sub">Based on 12% p.a. standard personal loan over 36 months.</p>
+            </div>
+          </div>
+
+          <!-- Dark Bento Pill: No-Cost EMI Truth Checker (Hero Feature) -->
+          <div class="bento-card card-nocost-truth">
+            <div class="truth-header">
+              <div class="truth-badge">TRUTH REVEALER</div>
+              <h3 id="lbl-nocost-heading">No-Cost EMI Reality Checker</h3>
+              <p id="lbl-nocost-sub" class="truth-sub">Does that "0% Interest" promotion hide extra charges or lost discounts?</p>
+            </div>
+
+            <div class="truth-form-grid">
+              <div class="truth-input-group">
+                <label>Listed Item Price (₹)</label>
+                <input type="number" id="nocost-price" value="60000" step="1000">
+              </div>
+              <div class="truth-input-group">
+                <label>Monthly EMI (₹)</label>
+                <input type="number" id="nocost-emi" value="10000" step="500">
+              </div>
+              <div class="truth-input-group">
+                <label>Tenure (Months)</label>
+                <input type="number" id="nocost-months" value="6" min="1" max="60">
+              </div>
+              <div class="truth-input-group">
+                <label>Processing Fee (₹)</label>
+                <input type="number" id="nocost-fee" value="999" step="100">
+              </div>
+              <div class="truth-input-group full-width">
+                <label>Cash Discount if Paid Upfront Today (₹)</label>
+                <input type="number" id="nocost-discount" value="3000" step="500">
+                <span class="sub-hint text-light">Discount you forego by choosing EMI rather than paying cash/card.</span>
+              </div>
+            </div>
+
+            <button class="btn-truth-reveal" onclick="checkNoCostTruth()">
+              <span>Uncover Hidden Interest Rate</span>
+            </button>
+
+            <!-- Big Red EAR Reveal Card -->
+            <div class="truth-reveal-box" id="truth-reveal-result">
+              <span class="reveal-lbl">EFFECTIVE ANNUAL INTEREST RATE (EAR)</span>
+              <div class="big-red-number" id="reveal-ear-rate">24.8%</div>
+              <div class="reveal-comparison" id="reveal-benchmark">Typical Personal Loan: 11% - 16%</div>
+              <p class="reveal-explanation" id="reveal-extra-cost">
+                You will pay an extra <strong>₹4,178</strong> in hidden fees & lost discount compared to paying upfront.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+      </div> <!-- End #module-payslip -->
+
+      <!-- MODULE 2: OFFER LETTER DECODER & COMPARER -->
+      <div id="module-offer" class="module-view">
+        <div class="module-header-banner">
+          <div>
+            <h2>💼 Offer Letter Decoder & Comparer</h2>
+            <p>Convert headline CTC into guaranteed monthly take-home, and uncover the 7 hidden fresher traps.</p>
+          </div>
+          <div class="mode-toggle-group">
+            <button id="mode-btn-single-offer" class="mode-btn active" onclick="switchOfferMode('single')">Single Offer</button>
+            <button id="mode-btn-compare-offer" class="mode-btn" onclick="switchOfferMode('compare')">Compare A vs B</button>
+          </div>
+        </div>
+
+        <!-- Single Offer Decoder Section -->
+        <div id="offer-single-section">
+          <div class="preset-pills-row">
+            <span style="font-size:12px; font-weight:700; align-self:center; color:var(--text-muted);">Quick Presets:</span>
+            <button class="preset-pill" onclick="loadSampleOffer('trap')">⚠️ MegaTech 14 LPA (Heavy Traps)</button>
+            <button class="preset-pill" onclick="loadSampleOffer('clean')">✅ CashFlow Inc 11 LPA (Clean Cash)</button>
+          </div>
+
+          <div class="bento-grid">
+            <!-- Offer Form -->
+            <div class="bento-card">
+              <div class="card-head">
+                <h3>Offer Letter Details</h3>
+                <span class="pill-badge">Deterministic</span>
+              </div>
+              <p class="card-sub">Enter the breakdown from your offer letter or employment annexure.</p>
+
+              <div class="form-columns-2">
+                <div class="form-group">
+                  <label>Company Name</label>
+                  <input type="text" id="offer-company" value="MegaTech Global">
+                </div>
+                <div class="form-group">
+                  <label>Role / Designation</label>
+                  <input type="text" id="offer-role" value="Associate Software Engineer">
+                </div>
+                <div class="form-group">
+                  <label>Annual CTC (₹)</label>
+                  <input type="number" id="offer-ctc" value="1400000" step="50000">
+                </div>
+                <div class="form-group">
+                  <label>Fixed Base Salary (₹)</label>
+                  <input type="number" id="offer-base" value="800000" step="50000">
+                </div>
+                <div class="form-group">
+                  <label>Variable / Performance Pay (₹)</label>
+                  <input type="number" id="offer-variable" value="250000" step="25000">
+                </div>
+                <div class="form-group">
+                  <label>Joining Bonus (₹)</label>
+                  <input type="number" id="offer-bonus" value="150000" step="25000">
+                </div>
+                <div class="form-group">
+                  <label>Bonus Clawback Period (Months)</label>
+                  <input type="number" id="offer-clawback" value="12" min="0" max="36">
+                </div>
+                <div class="form-group">
+                  <label>Stocks / ESOPs (Year 1 ₹)</label>
+                  <input type="number" id="offer-stocks" value="200000" step="50000">
+                </div>
+                <div class="form-group">
+                  <label>Service Bond Tenure (Months)</label>
+                  <input type="number" id="offer-bond-months" value="24" min="0" max="48">
+                </div>
+                <div class="form-group">
+                  <label>Bond Penalty Amount (₹)</label>
+                  <input type="number" id="offer-bond-penalty" value="200000" step="25000">
+                </div>
+                <div class="form-group">
+                  <label>Notice Period (Days)</label>
+                  <input type="number" id="offer-notice" value="90" min="0" max="180">
+                </div>
+              </div>
+
+              <button class="btn-primary" style="margin-top:16px; width:100%;" onclick="runOfferDecode()">
+                <span>🔍 Decode Real In-Hand & Traps</span>
+              </button>
+            </div>
+
+            <!-- Offer Results Hero & Traps -->
+            <div>
+              <div class="bento-card" style="margin-bottom:20px;">
+                <div class="card-head">
+                  <span class="stat-category">Cash Reality</span>
+                  <span id="offer-ratio-badge" class="badge-saving">57% Real Cash Ratio</span>
+                </div>
+                <div class="stat-big-val" id="offer-guaranteed-inhand">₹54,667<span class="stat-period">/month guaranteed</span></div>
+                <div class="stat-compare-row">
+                  <span class="compare-tag">Headline CTC: <strong id="offer-ctc-tag">₹14,00,000</strong></span>
+                  <span class="compare-tag">Month 1 Take-Home: <strong id="offer-m1-tag">₹1,94,667</strong></span>
+                </div>
+                <p class="card-sub" style="margin-top:12px;" id="offer-summary-text">
+                  You receive ₹54,667/mo consistently. Month 1 includes your ₹1,50,000 joining bonus (subject to 12-month clawback).
+                </p>
+              </div>
+
+              <!-- Detected Traps Container -->
+              <div class="bento-card">
+                <div class="traps-banner-title">
+                  <span>🚨</span> <span id="offer-traps-count-title">5 Fresher Traps Detected</span>
+                </div>
+                <div id="offer-traps-list" class="traps-grid">
+                  <!-- Dynamically injected trap cards -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Compare Offers Section (A vs B) -->
+        <div id="offer-compare-section" class="hidden">
+          <div class="bento-grid">
+            <!-- Offer A Card -->
+            <div class="bento-card">
+              <div class="card-head">
+                <h3>Offer A (e.g. Paper Heavy)</h3>
+                <span class="pill-badge">Company A</span>
+              </div>
+              <div class="form-group">
+                <label>Company Name</label>
+                <input type="text" id="comp-a-company" value="PaperUnicorn Tech">
+              </div>
+              <div class="form-group">
+                <label>Annual CTC (₹)</label>
+                <input type="number" id="comp-a-ctc" value="1400000">
+              </div>
+              <div class="form-group">
+                <label>Fixed Base (₹)</label>
+                <input type="number" id="comp-a-base" value="800000">
+              </div>
+              <div class="form-group">
+                <label>Variable Pay (₹)</label>
+                <input type="number" id="comp-a-variable" value="250000">
+              </div>
+              <div class="form-group">
+                <label>Stocks / ESOPs (₹)</label>
+                <input type="number" id="comp-a-stocks" value="350000">
+              </div>
+            </div>
+
+            <!-- Offer B Card -->
+            <div class="bento-card">
+              <div class="card-head">
+                <h3>Offer B (e.g. High Cash)</h3>
+                <span class="pill-badge">Company B</span>
+              </div>
+              <div class="form-group">
+                <label>Company Name</label>
+                <input type="text" id="comp-b-company" value="SolidCash Corp">
+              </div>
+              <div class="form-group">
+                <label>Annual CTC (₹)</label>
+                <input type="number" id="comp-b-ctc" value="1100000">
+              </div>
+              <div class="form-group">
+                <label>Fixed Base (₹)</label>
+                <input type="number" id="comp-b-base" value="1000000">
+              </div>
+              <div class="form-group">
+                <label>Variable Pay (₹)</label>
+                <input type="number" id="comp-b-variable" value="100000">
+              </div>
+              <div class="form-group">
+                <label>Stocks / ESOPs (₹)</label>
+                <input type="number" id="comp-b-stocks" value="0">
+              </div>
+            </div>
+          </div>
+
+          <div style="text-align:center; margin: 20px 0;">
+            <button class="btn-primary" style="padding: 12px 32px;" onclick="runOfferComparison()">
+              <span>⚖️ Run Side-by-Side Comparison</span>
+            </button>
+          </div>
+
+          <!-- Comparison Scorecard Table -->
+          <div id="offer-comparison-result" class="scorecard-container hidden">
+            <div class="card-head" style="margin-bottom:12px;">
+              <h3 id="comp-winner-heading">Comparison Verdict</h3>
+              <span id="comp-winner-pill" class="scorecard-winner-pill">Offer B Wins</span>
+            </div>
+            <p id="comp-verdict-desc" class="card-sub" style="margin-bottom:16px;">Verdict loading...</p>
+            <table class="scorecard-table">
+              <thead>
+                <tr>
+                  <th>Metric</th>
+                  <th id="th-comp-a">Offer A</th>
+                  <th id="th-comp-b">Offer B</th>
+                  <th>Difference</th>
+                </tr>
+              </thead>
+              <tbody id="comp-table-body">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODULE 3: AFFORDABILITY LENS -->
+      <div id="module-lens" class="module-view">
+        <div class="module-header-banner">
+          <div>
+            <h2>📷 Affordability Lens (Snap & Decide)</h2>
+            <p>Snap or upload any price tag, Amazon EMI banner, or bike quote for an instant traffic light verdict.</p>
+          </div>
+          <div class="status-pill">
+            <span class="status-dot"></span>
+            <span>Real-time APR Solver</span>
+          </div>
+        </div>
+
+        <!-- Presets -->
+        <div class="preset-pills-row">
+          <span style="font-size:12px; font-weight:700; align-self:center; color:var(--text-muted);">Test Scenarios:</span>
+          <button class="preset-pill" onclick="loadLensPreset('iphone')">📱 iPhone 16 Pro No-Cost EMI</button>
+          <button class="preset-pill" onclick="loadLensPreset('headphones')">🎧 Sony WH-1000XM5</button>
+          <button class="preset-pill" onclick="loadLensPreset('bike')">🏍️ Royal Enfield Hunter 350</button>
+        </div>
+
+        <!-- Verdict Banner -->
+        <div id="lens-verdict-banner" class="lens-verdict-banner verdict-banner-red">
+          <div class="verdict-left">
+            <div class="verdict-title" id="lens-verdict-title">🔴 Don't Do It</div>
+            <p class="verdict-sub" id="lens-verdict-sub">Hidden interest rate (24.8% EAR) is predatory — higher than a bank personal loan.</p>
+          </div>
+          <div class="lens-verdict-badge-pill" id="lens-verdict-badge">PREDATORY APR</div>
+        </div>
+
+        <div class="bento-grid">
+          <!-- Input Form Card -->
+          <div class="bento-card">
+            <div class="card-head">
+              <h3>Financing & Quote Parameters</h3>
+              <span class="pill-badge">Bisection IRR</span>
+            </div>
+            <div class="form-group">
+              <label>Item Name</label>
+              <input type="text" id="lens-item" value="iPhone 16 Pro (128GB)">
+            </div>
+            <div class="form-columns-2">
+              <div class="form-group">
+                <label>Upfront Price (₹)</label>
+                <input type="number" id="lens-price" value="119900" oninput="runLensEvaluation()">
+              </div>
+              <div class="form-group">
+                <label>Monthly EMI (₹)</label>
+                <input type="number" id="lens-emi" value="19983" oninput="runLensEvaluation()">
+              </div>
+              <div class="form-group">
+                <label>Tenure (Months)</label>
+                <input type="number" id="lens-months" value="6" min="1" max="60" oninput="runLensEvaluation()">
+              </div>
+              <div class="form-group">
+                <label>Processing Fee (₹)</label>
+                <input type="number" id="lens-fee" value="999" oninput="runLensEvaluation()">
+              </div>
+              <div class="form-group">
+                <label>Lost Upfront Discount (₹)</label>
+                <input type="number" id="lens-discount" value="3000" oninput="runLensEvaluation()">
+              </div>
+              <div class="form-group">
+                <label>Your Net Monthly Pay (₹)</label>
+                <input type="number" id="lens-salary" value="72000" oninput="runLensEvaluation()">
+              </div>
+            </div>
+            <button class="btn-primary" style="width:100%; margin-top:12px;" onclick="runLensEvaluation()">
+              <span>⚡ Evaluate Affordability Lens</span>
+            </button>
+          </div>
+
+          <!-- 3 Metric Cards -->
+          <div>
+            <div class="lens-metrics-grid">
+              <div class="lens-metric-card">
+                <div class="metric-title">Effective APR</div>
+                <div class="metric-val-big text-danger" id="lens-m-apr">24.8%</div>
+                <div class="metric-sub">Bank loan: 11-16%</div>
+              </div>
+              <div class="lens-metric-card">
+                <div class="metric-title">Salary Burn</div>
+                <div class="metric-val-big" id="lens-m-burn">1.7 Mos</div>
+                <div class="metric-sub">Of total net take-home</div>
+              </div>
+              <div class="lens-metric-card">
+                <div class="metric-title">Safe Debt Capacity</div>
+                <div class="metric-val-big text-warning" id="lens-m-capacity">79%</div>
+                <div class="metric-sub">Of 35% safe limit</div>
+              </div>
+            </div>
+
+            <div class="bento-card" style="margin-top:16px;">
+              <div class="card-head">
+                <h3>Financial Copilot Guidance</h3>
+                <span class="pill-badge text-success">Paylens Rule</span>
+              </div>
+              <p class="card-sub" id="lens-detailed-advice" style="font-size:13px; line-height:1.6; color:#334155;">
+                This purchase exceeds safe thresholds. You lose ₹3,000 in instant cashback by choosing EMI, plus ₹999 processing fees, creating an effective 24.8% APR. We recommend saving up for 2 months and paying upfront.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODULE 4: PAYSLIP AUDITOR -->
+      <div id="module-auditor" class="module-view">
+        <div class="module-header-banner">
+          <div>
+            <h2>🔍 Payslip Auditor (Month-over-Month)</h2>
+            <p>Catch hidden payroll errors, sudden March TDS jumps, and statutory EPF wage base discrepancies.</p>
+          </div>
+          <button class="btn-secondary" onclick="loadSampleAuditCase()">
+            <span>⚡ Load Trainee Case (March TDS Spike)</span>
+          </button>
+        </div>
+
+        <div class="health-score-card">
+          <div>
+            <h3 style="font-size:18px; font-weight:700; margin-bottom:4px;">Payroll Compliance Health Score</h3>
+            <p class="card-sub" id="auditor-summary-advice">2 payroll anomalies detected between January and March.</p>
+            <div style="display:flex; gap:8px; margin-top:8px;" id="audited-months-tags">
+              <span class="compare-tag">Jan 2026</span>
+              <span class="compare-tag">Feb 2026</span>
+              <span class="compare-tag">Mar 2026</span>
+            </div>
+          </div>
+          <div class="health-score-circle" id="health-circle" style="--score-angle: 234deg;">
+            <div class="health-score-inner">
+              <span id="health-score-val">65</span>
+              <span>/ 100</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Anomaly Cards List -->
+        <div class="anomaly-list" id="auditor-anomalies-list">
+          <!-- Dynamically injected anomalies -->
+        </div>
+
+        <!-- Grievance Email Draft Box -->
+        <div class="grievance-box">
+          <div class="grievance-header">
+            <h4>📋 Ready-to-Send HR / Payroll Grievance Draft</h4>
+            <button class="btn-sm" onclick="copyGrievanceEmail()">Copy Draft</button>
+          </div>
+          <div class="grievance-text" id="grievance-email-text">Subject: Clarification on March 2026 Payslip Deductions [Emp ID: #9842]
+
+Dear Payroll Team,
+
+Upon reviewing my payslips for January, February, and March 2026, I noticed a sudden increase in my TDS deduction from ₹2,000 to ₹14,000 (+₹12,000) despite no change in gross salary.
+
+Kindly confirm if this is due to non-submission of Section 80C/HRA tax proofs before the cutoff, and provide Form 16 so I may reconcile this during ITR filing.
+
+Best regards,
+Demo User</div>
+        </div>
+      </div>
+
+      <!-- MODULE 5: LIFE PLAN MODE -->
+      <div id="module-lifeplan" class="module-view">
+        <div class="module-header-banner">
+          <div>
+            <h2>🎯 Life Plan Mode & WhatsApp Letter</h2>
+            <p>50-30-20 budget calibrated to city tier, 3-month emergency fund runway, and a heartwarming letter for your parents.</p>
+          </div>
+          <div class="status-pill">
+            <span class="status-dot"></span>
+            <span>English • हिन्दी • ಕನ್ನಡ</span>
+          </div>
+        </div>
+
+        <div class="bento-grid">
+          <!-- Parameters -->
+          <div class="bento-card">
+            <div class="card-head">
+              <h3>Life Plan Parameters</h3>
+              <span class="pill-badge">City Calibrated</span>
+            </div>
+            <div class="form-group">
+              <label>Monthly Take-Home Pay (₹)</label>
+              <input type="number" id="lp-salary" value="72000" oninput="runLifePlan()">
+            </div>
+            <div class="form-group toggle-group">
+              <div class="toggle-info">
+                <label>Metro City Living</label>
+                <span class="sub-hint">Metro: 55/20/25 vs Tier-2: 45/25/30</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="lp-metro-toggle" checked onchange="runLifePlan()">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="form-group">
+              <label>City Name</label>
+              <input type="text" id="lp-city" value="Bengaluru" oninput="runLifePlan()">
+            </div>
+            <div class="form-group">
+              <label>First Major Goal</label>
+              <input type="text" id="lp-goal-name" value="Work Laptop" oninput="runLifePlan()">
+            </div>
+            <div class="form-columns-2">
+              <div class="form-group">
+                <label>Target (₹)</label>
+                <input type="number" id="lp-goal-target" value="75000" oninput="runLifePlan()">
+              </div>
+              <div class="form-group">
+                <label>Months</label>
+                <input type="number" id="lp-goal-months" value="6" min="1" max="36" oninput="runLifePlan()">
+              </div>
+            </div>
+            <button class="btn-primary" style="width:100%; margin-top:12px;" onclick="runLifePlan()">
+              <span>⚡ Recalculate Roadmap</span>
+            </button>
+          </div>
+
+          <!-- Budget Split & Emergency Runway -->
+          <div>
+            <div class="bento-card">
+              <div class="card-head">
+                <h3 id="lp-tier-heading">City Calibrated Split</h3>
+                <span class="pill-badge text-success">55 / 20 / 25 Split</span>
+              </div>
+              
+              <!-- Split Bar -->
+              <div class="budget-split-bars-container">
+                <div class="budget-bar-needs" id="lp-bar-needs" style="width: 55%;">Needs 55%</div>
+                <div class="budget-bar-wants" id="lp-bar-wants" style="width: 20%;">Wants 20%</div>
+                <div class="budget-bar-savings" id="lp-bar-savings" style="width: 25%;">Savings 25%</div>
+              </div>
+
+              <div class="hike-results-row" style="margin-top:16px;">
+                <div class="hike-metric">
+                  <span class="metric-label">Needs (Rent & Food)</span>
+                  <span class="metric-val" id="lp-val-needs">₹39,600</span>
+                </div>
+                <div class="hike-metric">
+                  <span class="metric-label">Wants (Lifestyle)</span>
+                  <span class="metric-val" id="lp-val-wants">₹14,400</span>
+                </div>
+                <div class="hike-metric">
+                  <span class="metric-label">Savings Pool</span>
+                  <span class="metric-val text-success" id="lp-val-savings">₹18,000</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Emergency Fund Box -->
+            <div class="bento-card" style="margin-top:16px;">
+              <div class="card-head">
+                <h3>3-Month Emergency Safety Cushion</h3>
+                <span class="pill-badge" id="lp-emergency-target-tag">Target: ₹1,18,800</span>
+              </div>
+              <p class="card-sub" id="lp-emergency-milestone-text">
+                You will achieve a complete 3-month safety cushion of ₹1,18,800 by Month 11.
+              </p>
+              <div class="stat-progress-container" style="margin-top:12px;">
+                <div class="bar-labels">
+                  <span>Emergency Fund Allocation (60% of Savings)</span>
+                  <span id="lp-emergency-monthly-val">₹10,800/mo</span>
+                </div>
+                <div class="progress-track">
+                  <div class="progress-fill" style="width: 60%; background:#10b981;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Heartwarming Parent WhatsApp Letter Card -->
+        <div class="whatsapp-letter-card" style="margin-top:24px;">
+          <div class="whatsapp-header-bar">
+            <div class="whatsapp-sender-info">
+              <div class="whatsapp-avatar">❤️</div>
+              <div>
+                <strong style="font-size:14px;">Explain to My Parents</strong>
+                <p style="font-size:11px; opacity:0.85;">Reassure family with mature financial clarity</p>
+              </div>
+            </div>
+            <div class="mode-toggle-group">
+              <button class="mode-btn active" id="btn-parent-en" onclick="changeParentLang('en')">English</button>
+              <button class="mode-btn" id="btn-parent-hi" onclick="changeParentLang('hi')">हिन्दी</button>
+              <button class="mode-btn" id="btn-parent-kn" onclick="changeParentLang('kn')">ಕನ್ನಡ</button>
+            </div>
+          </div>
+
+          <div class="whatsapp-bubble" id="whatsapp-message-bubble">
+Dear Mom & Dad,
+
+I wanted to share my first paycheck plan with you so you know I'm managing my finances responsibly:
+
+• Monthly In-Hand Salary: Exactly ₹72,000 reaches my bank account after all taxes and PF.
+• Essentials & Living: ₹39,600/month is allocated for rent, groceries, and bills.
+• Savings & Safety Net: I am saving ₹18,000 every single month to build a ₹1,18,800 emergency cushion.
+• First Major Goal: Saving responsibly for my Work Laptop (₹75,000) over 6 months without taking bad loans.
+
+Thank you for everything you sacrificed to get me here. Your guidance made this possible! ❤️
+            <div class="whatsapp-time">10:45 AM ✓✓</div>
+          </div>
+
+          <button class="btn-whatsapp-copy" onclick="copyParentWhatsApp()">
+            <span>📲 Copy Message to Send on WhatsApp</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Assumptions Modal / Expandable Panel -->
+      <div id="assumptions-modal" class="assumptions-panel hidden">
+        <div class="panel-header">
+          <h3>Tax & Calculation Assumptions (FY 2025-26)</h3>
+          <button class="btn-close" onclick="toggleAssumptions()">✕</button>
+        </div>
+        <div class="panel-body">
+          <p><strong>Financial Year:</strong> 2025-26 (Assessment Year 2026-27)</p>
+          <p><strong>New Tax Regime:</strong> Standard deduction ₹75,000. Full rebate u/s 87A up to ₹12,00,000 taxable income with marginal relief.</p>
+          <p><strong>Old Tax Regime:</strong> Standard deduction ₹50,000. HRA exemption u/s 10(13A). 80C capped at ₹1,50,000. Full rebate u/s 87A up to ₹5,00,000.</p>
+          <p><strong>Health & Education Cess:</strong> 4% applied on income tax.</p>
+          <p><strong>Safe EMI Guideline:</strong> Standard financial planning ratio of 35% of net in-hand salary minus existing debt obligations.</p>
+          <div class="disclaimer-badge">
+            Educational estimate only. Does not constitute formal tax or investment advice. Reference: incometax.gov.in
+          </div>
+        </div>
+      </div>
+
+      <!-- App Footer -->
+      <footer class="app-footer">
+        <p>Built for Yenepoya University FinTech Hack Sprint • Powered by Google Cloud (Gemini on Vertex AI, Cloud Run, Firestore, Translation API)</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

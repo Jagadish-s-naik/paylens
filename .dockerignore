@@ -1,0 +1,13 @@
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+.git
+.gitignore
+tests/
+test_cloud_smoke.py
+benchmark_extraction.py
+generate_samples.py
+cross_check.py
+*.md
