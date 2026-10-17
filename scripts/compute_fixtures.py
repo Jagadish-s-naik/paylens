@@ -238,15 +238,46 @@ def print_verdict(title: str, v):
         app = "" if st.is_applicable else " [Not Applicable]"
         warn = f" | Warning: {st.warning}" if st.warning else ""
         print(f" - {st.scenario_name}: {status}{app} | Stressed FOIR={st.stressed_foir*100:.1f}% | Stressed Free Cash=₹{st.stressed_free_cash:,.2f}{warn}")
-    print("-" * 70)
     print("RE-SCORED ALTERNATIVES:")
     for alt in v.alternatives:
         feas = "Feasible" if alt.is_feasible else "Not Possible"
         print(f" • {alt.title} [{feas}]: {alt.description} (Verdict: {alt.rescore_verdict} {alt.rescore_badge}, Post Runway: {alt.runway_after:.2f}m, Saved: ₹{alt.money_saved:,.0f})")
     print()
 
+def save_fixtures():
+    fixtures_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "tests", "fixtures"))
+    os.makedirs(fixtures_dir, exist_ok=True)
+    
+    # Save profiles
+    with open(os.path.join(fixtures_dir, "profile_rahul.json"), "w", encoding="utf-8") as f:
+        json.dump(profile_rahul.model_dump(), f, indent=2)
+    with open(os.path.join(fixtures_dir, "profile_amit.json"), "w", encoding="utf-8") as f:
+        json.dump(profile_amit.model_dump(), f, indent=2)
+    with open(os.path.join(fixtures_dir, "profile_vikram.json"), "w", encoding="utf-8") as f:
+        json.dump(profile_vikram.model_dump(), f, indent=2)
+        
+    # Save listings
+    with open(os.path.join(fixtures_dir, "listing_sony.json"), "w", encoding="utf-8") as f:
+        json.dump(listing_sony.model_dump(), f, indent=2)
+    with open(os.path.join(fixtures_dir, "listing_iphone.json"), "w", encoding="utf-8") as f:
+        json.dump(listing_iphone.model_dump(), f, indent=2)
+    with open(os.path.join(fixtures_dir, "listing_laptop.json"), "w", encoding="utf-8") as f:
+        json.dump(listing_laptop.model_dump(), f, indent=2)
+        
+    # Save verdicts
+    with open(os.path.join(fixtures_dir, "verdict_sony.json"), "w", encoding="utf-8") as f:
+        json.dump(v1.model_dump(), f, indent=2)
+    with open(os.path.join(fixtures_dir, "verdict_iphone.json"), "w", encoding="utf-8") as f:
+        json.dump(v2.model_dump(), f, indent=2)
+    with open(os.path.join(fixtures_dir, "verdict_laptop.json"), "w", encoding="utf-8") as f:
+        json.dump(v3.model_dump(), f, indent=2)
+    with open(os.path.join(fixtures_dir, "verdict_vikram.json"), "w", encoding="utf-8") as f:
+        json.dump(v4.model_dump(), f, indent=2)
+    print(f"✅ Generated and saved 10 golden fixtures to: {fixtures_dir}")
+
 if __name__ == "__main__":
     print_verdict("🟢 Scenario 1: Comfortable (Sony Headphones for Rahul)", v1)
     print_verdict("🟡 Scenario 2: Stretch (iPhone 16 Pro for Rahul)", v2)
     print_verdict("🔴 Scenario 3: Risky (Gaming Laptop for Amit)", v3)
     print_verdict("🏢 Scenario 4: Old Regime March TDS Shock Persona (Vikram)", v4)
+    save_fixtures()

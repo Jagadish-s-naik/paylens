@@ -6,13 +6,14 @@ Re-scores every alternative through the exact same evaluate_core_math function.
 """
 
 from typing import List, Dict, Any
-from app.config import settings
+from app.core.thresholds import Thresholds, DEFAULT
 from app.core.schemas import VerifiedProfile, Listing, PaymentOption, AlternativeOption
 
 def generate_alternatives(
     profile: VerifiedProfile,
     listing: Listing,
-    selected_option: PaymentOption
+    selected_option: PaymentOption,
+    th: Thresholds = DEFAULT
 ) -> List[AlternativeOption]:
     """
     Generates and re-scores 3 deterministic alternatives:
@@ -29,7 +30,7 @@ def generate_alternatives(
     existing_emi_total = sum(e.monthly_amount for e in existing_emis)
     essentials = rent + (in_hand * 0.30)
     effective_cash_price = listing.effective_cash_price
-    target_cushion = essentials * settings.EMERGENCY_CUSHION_MONTHS
+    target_cushion = essentials * th.EMERGENCY_CUSHION_MONTHS
     
     # Calculate regular monthly free cash
     free_cash_monthly = in_hand - essentials - existing_emi_total
@@ -95,7 +96,7 @@ def generate_alternatives(
             suggested_tenure_months=0,
             rescore_verdict="COMFORTABLE",
             rescore_badge="🟢 Safe Goal",
-            runway_after=settings.EMERGENCY_CUSHION_MONTHS,
+            runway_after=th.EMERGENCY_CUSHION_MONTHS,
             money_saved=0.0,
             is_feasible=True
         ))
@@ -134,7 +135,7 @@ def generate_alternatives(
             suggested_tenure_months=months_needed,
             rescore_verdict="COMFORTABLE",
             rescore_badge="🟢 Safe Goal",
-            runway_after=settings.EMERGENCY_CUSHION_MONTHS,
+            runway_after=th.EMERGENCY_CUSHION_MONTHS,
             money_saved=max(0.0, round(money_saved, 2)),
             is_feasible=True
         ))

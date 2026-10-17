@@ -5,7 +5,7 @@ Paylens Deterministic Stress Testing Engine.
 """
 
 from typing import List, Dict, Any
-from app.config import settings
+from app.core.thresholds import Thresholds, DEFAULT
 from app.core.schemas import VerifiedProfile, PaymentOption, StressTestResult
 from app.core.tax import calculate_new_regime_tax
 
@@ -44,7 +44,8 @@ def compute_regime_aware_march_shock(profile: VerifiedProfile) -> float:
 def run_stress_tests(
     profile: VerifiedProfile,
     option: PaymentOption,
-    regular_free_cash_after: float
+    regular_free_cash_after: float,
+    th: Thresholds = DEFAULT
 ) -> List[StressTestResult]:
     """
     Simulates:
@@ -61,10 +62,10 @@ def run_stress_tests(
     # -----------------------------------------------------------------
     # Stress Test A: Income Shock (-20% Take-Home)
     # -----------------------------------------------------------------
-    stressed_in_hand = in_hand * 0.80
+    stressed_in_hand = in_hand * (1.0 - th.INCOME_SHOCK_PCT)
     stressed_foir = round((existing_emi_total + new_emi) / stressed_in_hand, 4) if stressed_in_hand > 0 else 1.0
     stressed_free_cash = round(stressed_in_hand - (existing_emi_total + new_emi) - essentials, 2)
-    stress_a_passes = (stressed_foir <= settings.STRETCH_FOIR_MAX) and (stressed_free_cash >= 0)
+    stress_a_passes = (stressed_foir <= th.STRETCH_FOIR_MAX) and (stressed_free_cash >= 0)
     
     warning_a = None
     if not stress_a_passes:

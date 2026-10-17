@@ -6,7 +6,7 @@ Computes FOIR, Free Cash, Runway, and determines the Verdict via worst-tier reso
 """
 
 from typing import Dict, Any, List
-from app.config import settings
+from app.core.thresholds import Thresholds, DEFAULT
 from app.core.schemas import (
     VerifiedProfile,
     Listing,
@@ -58,7 +58,8 @@ def evaluate_core_math(
     effective_cash_price: float,
     processing_fee: float = 0.0,
     lost_cash_discount: float = 0.0,
-    is_cash_option: bool = False
+    is_cash_option: bool = False,
+    th: Thresholds = DEFAULT
 ) -> Dict[str, Any]:
     """
     Unified calculation used to score both listings and generated alternatives.
@@ -96,12 +97,12 @@ def evaluate_core_math(
         hidden_markup = round(total_outflow - effective_cash_price, 2)
         is_truly_zero = apr_res["is_truly_zero_cost"]
         
-    tier_foir = get_tier(foir_after, settings.SAFE_FOIR_MAX, settings.STRETCH_FOIR_MAX, higher_is_worse=True)
-    tier_free_cash = get_tier(free_cash_ratio_after, settings.SAFE_FREE_CASH_RATIO, settings.STRETCH_FREE_CASH_RATIO, higher_is_worse=False)
-    tier_runway = get_tier(runway_after, settings.EMERGENCY_CUSHION_MONTHS, settings.MIN_RUNWAY_STRETCH, higher_is_worse=False)
+    tier_foir = get_tier(foir_after, th.SAFE_FOIR_MAX, th.STRETCH_FOIR_MAX, higher_is_worse=True)
+    tier_free_cash = get_tier(free_cash_ratio_after, th.SAFE_FREE_CASH_RATIO, th.STRETCH_FREE_CASH_RATIO, higher_is_worse=False)
+    tier_runway = get_tier(runway_after, th.EMERGENCY_CUSHION_MONTHS, th.MIN_RUNWAY_STRETCH, higher_is_worse=False)
     
     verdict_level = worst_tier([tier_foir, tier_free_cash, tier_runway])
-    has_high_apr = (ear > settings.HIGH_APR_THRESHOLD) and (hidden_markup >= settings.SIGNIFICANT_MARKUP_RUPEES)
+    has_high_apr = (ear > th.HIGH_APR_THRESHOLD) and (hidden_markup >= th.SIGNIFICANT_MARKUP_RUPEES)
     
     return {
         "monthly_installment": monthly_installment,
@@ -130,7 +131,8 @@ def evaluate_core_math(
 def evaluate_affordability(
     profile: VerifiedProfile,
     listing: Listing,
-    selected_option_id: str
+    selected_option_id: str,
+    th: Thresholds = DEFAULT
 ) -> Verdict:
     """
     Evaluates a specific payment option for a listing against user's verified profile.
@@ -159,7 +161,8 @@ def evaluate_affordability(
         effective_cash_price=effective_cash_price,
         processing_fee=selected_opt.processing_fee,
         lost_cash_discount=selected_opt.lost_cash_discount or 0.0,
-        is_cash_option=(selected_opt.type == PaymentType.CASH)
+        is_cash_option=(selected_opt.type == PaymentType.CASH),
+        th=th
     )
     
     # Generate Headline Reason
@@ -183,8 +186,8 @@ def evaluate_affordability(
     from app.core.stress import run_stress_tests
     from app.core.alternatives import generate_alternatives
     
-    stress_results = run_stress_tests(profile, selected_opt, core["free_cash_after"])
-    alternatives = generate_alternatives(profile, listing, selected_opt)
+    stress_results = run_stress_tests(profile, selected_opt, core["free_cash_after"], th=th)
+    alternatives = generate_alternatives(profile, listing, selected_opt, th=th)
     
     return Verdict(
         verdict_level=core["verdict_level"],
