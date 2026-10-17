@@ -186,7 +186,7 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
 ```
 
 ### Sub-stage B.1: Standalone Mock Storefront (`mock-shop/`)
-- [ ] **Task B.1.1: Build Standalone HTML Storefront (`mock-shop/index.html`)**  
+- [x] **Task B.1.1: Build Standalone HTML Storefront (`mock-shop/index.html`)**  
   Build clean, responsive, realistic e-commerce product pages adhering strictly to [`ARCHITECTURE.md` §8.5](file:///home/shamblonaut/dev/clones/paylens/ARCHITECTURE.md#L290-L318):
   1. **Sony WH-1000XM5 Headphones**: List ₹29,990, Cash Discount ₹2,000 (Effective Cash ₹27,990).
      - Cash upfront: ₹27,990 (`data-pl-id="cash_upfront"`, `data-pl-type="CASH"`).
@@ -199,12 +199,12 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
   3. **ASUS ROG Gaming Laptop**: List ₹140,000, Cash Discount ₹0 (Effective Cash ₹140,000).
      - Standard EMI (12 months): ₹13,258.24/mo, Fee ₹500, 15% rate (`data-pl-id="standard_12m"`).
   - Include `<div data-pl-mount></div>` target for card insertion.
-- [ ] **Task B.1.2: Storefront Styling & Interactive Drawer (`mock-shop/style.css`, `mock-shop/shop.js`)**  
+- [x] **Task B.1.2: Storefront Styling & Interactive Drawer (`mock-shop/style.css`, `mock-shop/shop.js`)**  
   - Sleek modern e-commerce layout (gallery, product badges, payment selector).
   - Radio change handler: Updates `aria-checked="true"` on selected option. Dispatches custom `pl-option-changed` event to trigger adapter observation.
 
 ### Sub-stage B.2: Manifest & Offline Mock Bridge (`extension/`)
-- [ ] **Task B.2.1: Manifest Declaration (`extension/manifest.json`)**  
+- [x] **Task B.2.1: Manifest Declaration (`extension/manifest.json`)**  
   Per [`ARCHITECTURE.md` §8.1](file:///home/shamblonaut/dev/clones/paylens/ARCHITECTURE.md#L241-L247):
   - Permissions: `["storage"]`.
   - Host permissions: `["http://localhost:8000/*", "https://*.run.app/*"]`.
@@ -212,7 +212,7 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
   - Web accessible resources: `["content/card.css"]`.
   - Options page: `"options/options.html"`.
   - Action popup: `"popup/popup.html"`.
-- [ ] **Task B.2.2: Extension Config & Golden Mock Fixtures (`extension/config.js`, `extension/mock_data.js`)**  
+- [x] **Task B.2.2: Extension Config & Golden Mock Fixtures (`extension/config.js`, `extension/mock_data.js`)**  
   - `extension/config.js`:
     ```javascript
     export const CONFIG = {
@@ -222,7 +222,7 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
     };
     ```
   - `extension/mock_data.js`: Exports exact golden `Verdict` JSON objects from `scripts/compute_fixtures.py` for Rahul/Sony, Rahul/iPhone, Amit/Laptop, and Vikram/Shock. Enables instant extension testing with 0 backend dependencies!
-- [ ] **Task B.2.3: Background Service Worker (`extension/background/service_worker.js`)**  
+- [x] **Task B.2.3: Background Service Worker (`extension/background/service_worker.js`)**  
   - Initialize `paylens.installId` on install.
   - Implement message protocol:
     - If `CONFIG.MOCK_API === true`, return matching verdict from `mock_data.js` immediately.

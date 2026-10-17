@@ -1,0 +1,891 @@
+/* =====================================================================
+   ApexStore — Modern Flagship E-Commerce Stylesheet
+   Designed for High-Fidelity Paylens Demo Presentation
+   ===================================================================== */
+
+:root {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  
+  /* Primary & Slate Palette */
+  --slate-50: #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+
+  /* Brand Accents */
+  --brand-50: #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-500: #3b82f6;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
+
+  /* Status Colors */
+  --emerald-500: #10b981;
+  --emerald-600: #059669;
+  --amber-500: #f59e0b;
+  --amber-600: #d97706;
+  --rose-500: #f43f5e;
+  --rose-600: #e11d48;
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-hover: 0 8px 20px -4px rgba(37, 99, 235, 0.12), 0 4px 8px -2px rgba(0, 0, 0, 0.05);
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #fafbfc;
+  color: var(--slate-900);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* =====================================================================
+   Top Announcement Bar
+   ===================================================================== */
+.announcement-bar {
+  background: linear-gradient(90deg, #1e293b 0%, #0f172a 100%);
+  color: #ffffff;
+  padding: 8px 16px;
+  font-size: 0.8125rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.announcement-content {
+  max-width: 1240px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.announcement-tag {
+  background: rgba(37, 99, 235, 0.3);
+  color: #93c5fd;
+  border: 1px solid rgba(147, 197, 253, 0.3);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* =====================================================================
+   Header
+   ===================================================================== */
+.store-header {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--slate-200);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.header-container {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.brand-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-name {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--slate-900);
+  letter-spacing: -0.02em;
+}
+
+.badge-official {
+  background: var(--slate-100);
+  color: var(--slate-600);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid var(--slate-200);
+}
+
+.search-bar {
+  flex: 1;
+  max-width: 480px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--slate-400);
+  pointer-events: none;
+}
+
+.search-bar input {
+  width: 100%;
+  padding: 9px 14px 9px 40px;
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 0.875rem;
+  background-color: var(--slate-50);
+  color: var(--slate-800);
+  transition: all 0.2s ease;
+}
+
+.search-bar input:focus {
+  outline: none;
+  border-color: var(--brand-600);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.action-item {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.action-label {
+  color: var(--slate-500);
+}
+
+.action-value {
+  color: var(--slate-800);
+  font-weight: 600;
+}
+
+.cart-btn {
+  position: relative;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  color: var(--slate-700);
+  transition: color 0.15s ease;
+}
+
+.cart-btn:hover {
+  color: var(--brand-600);
+}
+
+.cart-badge {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  background: var(--brand-600);
+  color: #ffffff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+}
+
+/* =====================================================================
+   Demo Scenario Navigation Bar
+   ===================================================================== */
+.demo-nav {
+  background: #ffffff;
+  border-bottom: 1px solid var(--slate-200);
+  padding: 10px 24px;
+}
+
+.demo-nav-inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.demo-label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--slate-500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.demo-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 0;
+}
+
+.demo-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--slate-50);
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-md);
+  padding: 8px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.demo-tab:hover {
+  background: var(--slate-100);
+  border-color: var(--slate-300);
+}
+
+.demo-tab.active {
+  background: #ffffff;
+  border-color: var(--brand-600);
+  box-shadow: 0 0 0 1px var(--brand-600), var(--shadow-sm);
+}
+
+.tab-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.status-green { background-color: var(--emerald-500); box-shadow: 0 0 6px rgba(16, 185, 129, 0.6); }
+.status-yellow { background-color: var(--amber-500); box-shadow: 0 0 6px rgba(245, 158, 11, 0.6); }
+.status-red { background-color: var(--rose-500); box-shadow: 0 0 6px rgba(244, 63, 94, 0.6); }
+
+.tab-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--slate-800);
+}
+
+.tab-subtitle {
+  font-size: 0.75rem;
+  color: var(--slate-500);
+  font-weight: 500;
+}
+
+/* =====================================================================
+   Main Stage & PDP Layout
+   ===================================================================== */
+.store-main {
+  max-width: 1240px;
+  margin: 24px auto 48px;
+  padding: 0 24px;
+}
+
+.product-pdp {
+  display: block;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.product-pdp[hidden] {
+  display: none !important;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pdp-layout {
+  display: grid;
+  grid-template-columns: 460px 1fr;
+  gap: 40px;
+  align-items: start;
+}
+
+/* Gallery Column */
+.gallery-col {
+  position: sticky;
+  top: 130px;
+}
+
+.gallery-hero {
+  background: #ffffff;
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  min-height: 400px;
+}
+
+.product-badge-overlay {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+
+.tag-bestseller, .tag-flagship, .tag-gaming {
+  background: var(--slate-900);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  letter-spacing: 0.02em;
+}
+
+.tag-gaming {
+  background: linear-gradient(135deg, #ef4444 0%, #7c3aed 100%);
+}
+
+.tag-category {
+  background: var(--slate-100);
+  color: var(--slate-700);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  border: 1px solid var(--slate-200);
+}
+
+.product-svg {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  transition: transform 0.3s ease;
+}
+
+.gallery-hero:hover .product-svg {
+  transform: scale(1.02);
+}
+
+.gallery-features {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  justify-content: center;
+}
+
+.feature-chip {
+  background: #ffffff;
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--slate-700);
+  box-shadow: var(--shadow-sm);
+}
+
+/* =====================================================================
+   Details Column
+   ===================================================================== */
+.details-col {
+  background: #ffffff;
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  box-shadow: var(--shadow-card);
+}
+
+.breadcrumb {
+  font-size: 0.8125rem;
+  color: var(--slate-400);
+  margin-bottom: 12px;
+}
+
+.breadcrumb a {
+  color: var(--slate-500);
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  color: var(--brand-600);
+}
+
+.product-title {
+  font-size: 1.625rem;
+  font-weight: 800;
+  color: var(--slate-900);
+  line-height: 1.25;
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
+}
+
+.product-model {
+  font-size: 0.875rem;
+  color: var(--slate-500);
+  margin-bottom: 14px;
+}
+
+.rating-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--slate-100);
+}
+
+.stars {
+  color: #f59e0b;
+  font-size: 1rem;
+  letter-spacing: 2px;
+}
+
+.rating-val {
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--slate-800);
+}
+
+.rating-count {
+  font-size: 0.8125rem;
+  color: var(--slate-400);
+}
+
+.stock-status {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.stock-status.in-stock {
+  color: var(--emerald-600);
+}
+
+/* Price Box */
+.price-box {
+  background: linear-gradient(135deg, var(--slate-50) 0%, #ffffff 100%);
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  margin-bottom: 24px;
+}
+
+.price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.current-price {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--slate-900);
+  letter-spacing: -0.02em;
+}
+
+.original-price {
+  font-size: 1.125rem;
+  color: var(--slate-400);
+  text-decoration: line-through;
+}
+
+.discount-badge {
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.cash-discount-note {
+  font-size: 0.8125rem;
+  color: var(--slate-600);
+}
+
+/* =====================================================================
+   Payment Selection Section (Interactive Radio Group)
+   ===================================================================== */
+.payment-selection-section {
+  margin-bottom: 24px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--slate-900);
+}
+
+.section-hint {
+  font-size: 0.75rem;
+  color: var(--slate-400);
+}
+
+.options-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  background: #ffffff;
+  border: 1.5px solid var(--slate-200);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.option-card:hover {
+  border-color: var(--slate-400);
+  box-shadow: var(--shadow-sm);
+}
+
+.option-card:focus-visible {
+  outline: none;
+  border-color: var(--brand-600);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+/* Selected Card Highlight */
+.option-card.selected,
+.option-card[aria-checked="true"] {
+  border-color: var(--brand-600);
+  background-color: rgba(37, 99, 235, 0.025);
+  box-shadow: 0 0 0 1px var(--brand-600), var(--shadow-sm);
+}
+
+/* Custom Radio Dot */
+.radio-indicator {
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  border: 2px solid var(--slate-300);
+  margin-top: 2px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.option-card.selected .radio-indicator,
+.option-card[aria-checked="true"] .radio-indicator {
+  border-color: var(--brand-600);
+}
+
+.radio-indicator::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background-color: var(--brand-600);
+  transform: scale(0);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.option-card.selected .radio-indicator::after,
+.option-card[aria-checked="true"] .radio-indicator::after {
+  transform: scale(1);
+}
+
+/* Option Content Details */
+.option-details {
+  flex: 1;
+}
+
+.option-headline {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 2px;
+}
+
+.name-with-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.option-name {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--slate-800);
+}
+
+.option-price {
+  font-size: 1.0625rem;
+  font-weight: 800;
+  color: var(--slate-900);
+  white-space: nowrap;
+}
+
+.option-price small {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--slate-500);
+}
+
+.option-meta {
+  font-size: 0.8125rem;
+  color: var(--slate-500);
+}
+
+/* Option Badges */
+.badge-zero-cost {
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.badge-tenure {
+  background: var(--slate-100);
+  color: var(--slate-700);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--slate-200);
+}
+
+/* =====================================================================
+   Paylens Slot (Mount Target for Chrome Extension)
+   ===================================================================== */
+.paylens-slot {
+  margin: 16px 0 24px 0;
+  transition: all 0.3s ease;
+}
+
+/* =====================================================================
+   Purchase Buttons & CTAs
+   ===================================================================== */
+.purchase-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.btn-primary {
+  flex: 1;
+  background: var(--brand-600);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 14px 20px;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.btn-primary:hover {
+  background: var(--brand-700);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.btn-primary:active {
+  transform: translateY(1px);
+}
+
+.btn-secondary {
+  flex: 1;
+  background: #ffffff;
+  color: var(--slate-800);
+  border: 1.5px solid var(--slate-300);
+  border-radius: var(--radius-md);
+  padding: 14px 20px;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: var(--slate-50);
+  border-color: var(--slate-400);
+}
+
+.btn-secondary:active {
+  transform: translateY(1px);
+}
+
+/* =====================================================================
+   Trust Guarantees
+   ===================================================================== */
+.trust-guarantees {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--slate-100);
+}
+
+.trust-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--slate-600);
+  line-height: 1.3;
+}
+
+.trust-icon {
+  font-size: 1.125rem;
+}
+
+/* =====================================================================
+   Store Footer
+   ===================================================================== */
+.store-footer {
+  background: #ffffff;
+  border-top: 1px solid var(--slate-200);
+  padding: 40px 24px;
+}
+
+.footer-container {
+  max-width: 1240px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+}
+
+.footer-col h4 {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--slate-900);
+  margin-bottom: 8px;
+}
+
+.footer-col p {
+  font-size: 0.8125rem;
+  color: var(--slate-500);
+  line-height: 1.6;
+}
+
+.footer-col .copyright {
+  margin-top: 12px;
+  font-size: 0.75rem;
+  color: var(--slate-400);
+}
+
+.footer-col ul {
+  list-style: none;
+  font-size: 0.8125rem;
+  color: var(--slate-600);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* =====================================================================
+   Toast Notification (Micro-interactions)
+   ===================================================================== */
+.toast-notification {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--slate-900);
+  color: #ffffff;
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  animation: slideUp 0.3s ease-out;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* =====================================================================
+   Responsive Breakpoints
+   ===================================================================== */
+@media (max-width: 960px) {
+  .pdp-layout {
+    grid-template-columns: 1fr;
+  }
+  
+  .gallery-col {
+    position: static;
+  }
+
+  .gallery-hero {
+    min-height: 320px;
+  }
+
+  .trust-guarantees {
+    grid-template-columns: 1fr;
+  }
+
+  .footer-container {
+    grid-template-columns: 1fr;
+  }
+}
