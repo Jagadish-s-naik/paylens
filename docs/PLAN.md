@@ -186,7 +186,7 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
 ```
 
 ### Sub-stage B.1: Standalone Mock Storefront (`mock-shop/`)
-- [ ] **Task B.1.1: Build Standalone HTML Storefront (`mock-shop/index.html`)**  
+- [x] **Task B.1.1: Build Standalone HTML Storefront (`mock-shop/index.html`)**  
   Build clean, responsive, realistic e-commerce product pages adhering strictly to [`ARCHITECTURE.md` §8.5](file:///home/shamblonaut/dev/clones/paylens/ARCHITECTURE.md#L290-L318):
   1. **Sony WH-1000XM5 Headphones**: List ₹29,990, Cash Discount ₹2,000 (Effective Cash ₹27,990).
      - Cash upfront: ₹27,990 (`data-pl-id="cash_upfront"`, `data-pl-type="CASH"`).
@@ -199,7 +199,7 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
   3. **ASUS ROG Gaming Laptop**: List ₹140,000, Cash Discount ₹0 (Effective Cash ₹140,000).
      - Standard EMI (12 months): ₹13,258.24/mo, Fee ₹500, 15% rate (`data-pl-id="standard_12m"`).
   - Include `<div data-pl-mount></div>` target for card insertion.
-- [ ] **Task B.1.2: Storefront Styling & Interactive Drawer (`mock-shop/style.css`, `mock-shop/shop.js`)**  
+- [x] **Task B.1.2: Storefront Styling & Interactive Drawer (`mock-shop/style.css`, `mock-shop/shop.js`)**  
   - Sleek modern e-commerce layout (gallery, product badges, payment selector).
   - Radio change handler: Updates `aria-checked="true"` on selected option. Dispatches custom `pl-option-changed` event to trigger adapter observation.
 

@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apex Electronics — Official Flagship Store</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top Announcement Bar -->
+  <aside class="announcement-bar" aria-label="Store promotional banner">
+    <div class="announcement-content">
+      <span>⚡ <strong>Mega Tech Festival</strong>: Instant ₹2,000–₹5,000 instant bank discount on HDFC & ICICI credit cards!</span>
+      <span class="announcement-tag">Verified Demo Store</span>
+    </div>
+  </aside>
+
+  <!-- Global Header -->
+  <header class="store-header">
+    <div class="header-container">
+      <div class="brand-area">
+        <div class="brand-logo">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="28" height="28" rx="8" fill="#2563EB"/>
+            <path d="M7 19L14 7L21 19H17L14 13.5L11 19H7Z" fill="white"/>
+          </svg>
+          <span class="brand-name">ApexStore</span>
+        </div>
+        <span class="badge-official">Official Partner</span>
+      </div>
+
+      <div class="search-bar">
+        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" placeholder="Search Sony WH-1000XM5, iPhone 16 Pro, ASUS ROG Strix..." value="" aria-label="Search store">
+      </div>
+
+      <div class="header-actions">
+        <div class="action-item">
+          <span class="action-label">Deliver to</span>
+          <strong class="action-value">Bengaluru 560001</strong>
+        </div>
+        <div class="cart-btn" aria-label="Cart with 1 item">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <path d="M16 10a4 4 0 0 1-8 0"></path>
+          </svg>
+          <span class="cart-badge">1</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Demo Scenario Switcher Navigation -->
+  <nav class="demo-nav" aria-label="Demo Product Scenarios">
+    <div class="demo-nav-inner">
+      <span class="demo-label">Demo Scenario:</span>
+      <div class="demo-tabs" role="tablist">
+        <button class="demo-tab active" role="tab" id="tab-sony" aria-selected="true" aria-controls="product-sony" data-target="product-sony">
+          <span class="tab-indicator status-green"></span>
+          <span class="tab-title">1. Sony WH-1000XM5</span>
+          <span class="tab-subtitle">₹29,990 • Comfortable (Rahul)</span>
+        </button>
+        <button class="demo-tab" role="tab" id="tab-iphone" aria-selected="false" aria-controls="product-iphone" data-target="product-iphone">
+          <span class="tab-indicator status-yellow"></span>
+          <span class="tab-title">2. Apple iPhone 16 Pro</span>
+          <span class="tab-subtitle">₹1,19,900 • Stretch (Rahul)</span>
+        </button>
+        <button class="demo-tab" role="tab" id="tab-laptop" aria-selected="false" aria-controls="product-laptop" data-target="product-laptop">
+          <span class="tab-indicator status-red"></span>
+          <span class="tab-title">3. ASUS ROG Strix G16</span>
+          <span class="tab-subtitle">₹1,45,000 • Risky (Amit)</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Storefront Stage -->
+  <main class="store-main">
+
+    <!-- ============================================================== -->
+    <!-- SCENARIO 1: SONY WH-1000XM5 (COMFORTABLE SCENARIO)             -->
+    <!-- ============================================================== -->
+    <section
+      class="product-pdp active"
+      id="product-sony"
+      role="tabpanel"
+      aria-labelledby="tab-sony"
+      data-pl-product
+      data-pl-id="sony_wh1000xm5"
+      data-pl-title="Sony WH-1000XM5 Wireless Noise Canceling Headphones"
+      data-pl-category="Audio"
+      data-pl-list-price="29990"
+      data-pl-cash-discount="2000"
+    >
+      <div class="pdp-layout">
+        <!-- Gallery Column -->
+        <div class="gallery-col">
+          <div class="gallery-hero audio-hero">
+            <div class="product-badge-overlay">
+              <span class="tag-bestseller">#1 Best Seller</span>
+              <span class="tag-category">Premium Audio</span>
+            </div>
+            <!-- High-Fidelity SVG Graphic for Sony Headphones -->
+            <svg class="product-svg" viewBox="0 0 360 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="sonyGrad" x1="60" y1="40" x2="300" y2="320" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#1E293B"/>
+                  <stop offset="1" stop-color="#0F172A"/>
+                </linearGradient>
+                <linearGradient id="accentGrad" x1="120" y1="80" x2="240" y2="280" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#D97706"/>
+                  <stop offset="1" stop-color="#B45309"/>
+                </linearGradient>
+              </defs>
+              <circle cx="180" cy="180" r="140" fill="#F8FAFC"/>
+              <!-- Headband -->
+              <path d="M100 190 C100 90, 260 90, 260 190" stroke="url(#sonyGrad)" stroke-width="20" stroke-linecap="round"/>
+              <path d="M110 160 C110 105, 250 105, 250 160" stroke="#475569" stroke-width="6" stroke-linecap="round"/>
+              <!-- Earcups -->
+              <rect x="75" y="180" width="46" height="85" rx="23" fill="url(#sonyGrad)"/>
+              <rect x="83" y="190" width="30" height="65" rx="15" fill="#334155"/>
+              <circle cx="98" cy="222" r="6" fill="url(#accentGrad)"/>
+              <rect x="239" y="180" width="46" height="85" rx="23" fill="url(#sonyGrad)"/>
+              <rect x="247" y="190" width="30" height="65" rx="15" fill="#334155"/>
+              <circle cx="262" cy="222" r="6" fill="url(#accentGrad)"/>
+            </svg>
+          </div>
+          <div class="gallery-features">
+            <div class="feature-chip">🎧 Industry-leading ANC</div>
+            <div class="feature-chip">🔋 30h Battery</div>
+            <div class="feature-chip">⚡ 3-min Quick Charge</div>
+          </div>
+        </div>
+
+        <!-- Details & Purchase Column -->
+        <div class="details-col">
+          <nav class="breadcrumb" aria-label="Breadcrumb">
+            <a href="#">Electronics</a> &gt; <a href="#">Audio</a> &gt; <span aria-current="page">Over-Ear Headphones</span>
+          </nav>
+
+          <h1 class="product-title">Sony WH-1000XM5 Wireless Noise Canceling Headphones</h1>
+          <p class="product-model">Model: WH1000XM5/B • Auto NC Optimizer • 8 Mics • LDAC & Hi-Res Audio</p>
+
+          <div class="rating-strip">
+            <div class="stars">★★★★★</div>
+            <span class="rating-val">4.8</span>
+            <span class="rating-count">(3,420 customer ratings)</span>
+            <span class="stock-status in-stock">● In Stock</span>
+          </div>
+
+          <!-- Price Block -->
+          <div class="price-box">
+            <div class="price-row">
+              <span class="current-price">₹27,990</span>
+              <span class="original-price">₹29,990</span>
+              <span class="discount-badge">Save ₹2,000 (7% OFF)</span>
+            </div>
+            <p class="cash-discount-note">
+              🏷️ <strong>₹2,000 Instant Bank Discount</strong> applied at checkout on all prepaid cards and cash upfront.
+            </p>
+          </div>
+
+          <!-- Payment Options Drawer -->
+          <div class="payment-selection-section">
+            <div class="section-header">
+              <h2 class="section-title">Select Payment Method</h2>
+              <span class="section-hint">Choose full payment or financing</span>
+            </div>
+
+            <div class="options-group" role="radiogroup" aria-label="Sony WH-1000XM5 Payment Options">
+              <!-- Option 1: Cash Full -->
+              <div
+                class="option-card"
+                data-pl-option
+                data-pl-id="cash_full"
+                data-pl-type="CASH"
+                data-pl-tenure="1"
+                data-pl-emi="27990"
+                data-pl-fee="0"
+                data-pl-down="0"
+                data-pl-lost-discount="0"
+                data-pl-rate="0"
+                role="radio"
+                aria-checked="false"
+                tabindex="0"
+              >
+                <div class="radio-indicator"></div>
+                <div class="option-details">
+                  <div class="option-headline">
+                    <span class="option-name">Full Payment (Cash / Instant Bank Discount)</span>
+                    <span class="option-price">₹27,990</span>
+                  </div>
+                  <p class="option-meta">Includes instant ₹2,000 bank discount • Zero fees</p>
+                </div>
+              </div>
+
+              <!-- Option 2: No-Cost EMI (6M) [DEFAULT SELECTED] -->
+              <div
+                class="option-card selected"
+                data-pl-option
+                data-pl-id="sony_nocost_6m"
+                data-pl-alias="hdfc_nocost_6m"
+                data-pl-type="NO_COST_EMI"
+                data-pl-tenure="6"
+                data-pl-emi="4998.33"
+                data-pl-fee="199"
+                data-pl-down="0"
+                data-pl-lost-discount="2000"
+                data-pl-rate="0"
+                role="radio"
+                aria-checked="true"
+                tabindex="0"
+              >
+                <div class="radio-indicator"></div>
+                <div class="option-details">
+                  <div class="option-headline">
+                    <div class="name-with-tag">
+                      <span class="option-name">HDFC No-Cost EMI (6 Months)</span>
+                      <span class="badge-zero-cost">0% Stated Interest</span>
+                    </div>
+                    <span class="option-price">₹4,998.33<small>/mo</small></span>
+                  </div>
+                  <p class="option-meta">Total ₹29,990 + ₹199 processing fee • Instant discount forfeited</p>
+                </div>
+              </div>
+
+              <!-- Option 3: Standard EMI (12M) -->
+              <div
+                class="option-card"
+                data-pl-option
+                data-pl-id="sony_std_12m"
+                data-pl-type="STANDARD_EMI"
+                data-pl-tenure="12"
+                data-pl-emi="2580"
+                data-pl-fee="199"
+                data-pl-down="0"
+                data-pl-lost-discount="2000"
+                data-pl-rate="14"
+                role="radio"
+                aria-checked="false"
+                tabindex="0"
+              >
+                <div class="radio-indicator"></div>
+                <div class="option-details">
+                  <div class="option-headline">
+                    <span class="option-name">Standard EMI (12 Months, 14% APR)</span>
+                    <span class="option-price">₹2,580.00<small>/mo</small></span>
+                  </div>
+                  <p class="option-meta">Bank interest: 14% p.a. • ₹199 processing fee</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Paylens Injection Mount Target -->
+          <div data-pl-mount id="paylens-mount-sony" class="paylens-slot" aria-live="polite"></div>
+
+          <!-- Checkout Actions -->
+          <div class="purchase-actions">
+            <button class="btn-primary" type="button">Buy Now with 1-Click</button>
+            <button class="btn-secondary" type="button">Add to Shopping Cart</button>
+          </div>
+
+          <!-- Buyer Protection Strip -->
+          <div class="trust-guarantees">
+            <div class="trust-item">
+              <span class="trust-icon">🛡️</span>
+              <span>1 Year Sony India Domestic Warranty</span>
+            </div>
+            <div class="trust-item">
+              <span class="trust-icon">🚚</span>
+              <span>Free Delivery by Tomorrow, 11 AM</span>
+            </div>
+            <div class="trust-item">
+              <span class="trust-icon">🔄</span>
+              <span>7-Day Replacement Guarantee</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- SCENARIO 2: APPLE iPHONE 16 PRO (STRETCH SCENARIO)             -->
+    <!-- ============================================================== -->
+    <section
+      class="product-pdp"
+      id="product-iphone"
+      role="tabpanel"
+      aria-labelledby="tab-iphone"
+      hidden
+      data-pl-product
+      data-pl-id="iphone_16_pro"
+      data-pl-title="Apple iPhone 16 Pro (128 GB) - Natural Titanium"
+      data-pl-category="Smartphone"
+      data-pl-list-price="119900"
+      data-pl-cash-discount="5000"
+    >
+      <div class="pdp-layout">
+        <div class="gallery-col">
+          <div class="gallery-hero phone-hero">
+            <div class="product-badge-overlay">
+              <span class="tag-flagship">New Flagship</span>
+              <span class="tag-category">iOS Smartphone</span>
+            </div>
+            <!-- High-Fidelity SVG Graphic for iPhone 16 Pro -->
+            <svg class="product-svg" viewBox="0 0 360 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="titaniumGrad" x1="100" y1="40" x2="260" y2="320" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#C2B7A3"/>
+                  <stop offset="0.5" stop-color="#8E8575"/>
+                  <stop offset="1" stop-color="#5A5348"/>
+                </linearGradient>
+                <linearGradient id="screenGrad" x1="110" y1="50" x2="250" y2="310" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#18181B"/>
+                  <stop offset="1" stop-color="#09090B"/>
+                </linearGradient>
+              </defs>
+              <rect x="105" y="40" width="150" height="280" rx="36" fill="url(#titaniumGrad)"/>
+              <rect x="110" y="45" width="140" height="270" rx="32" fill="url(#screenGrad)"/>
+              <!-- Dynamic Island -->
+              <rect x="155" y="55" width="50" height="14" rx="7" fill="#000000"/>
+              <!-- Camera Bump (Back representation) -->
+              <rect x="118" y="58" width="48" height="48" rx="14" fill="#716A5C" fill-opacity="0.2"/>
+            </svg>
+          </div>
+          <div class="gallery-features">
+            <div class="feature-chip">⚙️ A18 Pro Chip</div>
+            <div class="feature-chip">📸 48MP Fusion Camera</div>
+            <div class="feature-chip">🔋 Grade 5 Titanium</div>
+          </div>
+        </div>
+
+        <div class="details-col">
+          <nav class="breadcrumb" aria-label="Breadcrumb">
+            <a href="#">Electronics</a> &gt; <a href="#">Smartphones</a> &gt; <span aria-current="page">Apple</span>
+          </nav>
+
+          <h1 class="product-title">Apple iPhone 16 Pro (128 GB) - Natural Titanium</h1>
+          <p class="product-model">Model: MYNX3HN/A • Super Retina XDR Display with ProMotion • USB-C 3</p>
+
+          <div class="rating-strip">
+            <div class="stars">★★★★★</div>
+            <span class="rating-val">4.9</span>
+            <span class="rating-count">(1,180 customer ratings)</span>
+            <span class="stock-status in-stock">● In Stock</span>
+          </div>
+
+          <div class="price-box">
+            <div class="price-row">
+              <span class="current-price">₹1,14,900</span>
+              <span class="original-price">₹1,19,900</span>
+              <span class="discount-badge">Save ₹5,000 (4% OFF)</span>
+            </div>
+            <p class="cash-discount-note">
+              🏷️ <strong>₹5,000 Instant Cash Discount</strong> applied with full payment on major credit/debit cards.
+            </p>
+          </div>
+
+          <div class="payment-selection-section">
+            <div class="section-header">
+              <h2 class="section-title">Select Payment Method</h2>
+              <span class="section-hint">Compare cash vs EMI options</span>
+            </div>
+
+            <div class="options-group" role="radiogroup" aria-label="iPhone 16 Pro Payment Options">
+              <!-- Option 1: Cash Full -->
+              <div
+                class="option-card"
+                data-pl-option
+                data-pl-id="cash_full"
+                data-pl-type="CASH"
+                data-pl-tenure="1"
+                data-pl-emi="114900"
+                data-pl-fee="0"
+                data-pl-down="0"
+                data-pl-lost-discount="0"
+                data-pl-rate="0"
+                role="radio"
+                aria-checked="false"
+                tabindex="0"
+              >
+                <div class="radio-indicator"></div>
+                <div class="option-details">
+                  <div class="option-headline">
+                    <span class="option-name">Full Payment (Instant Bank Discount)</span>
+                    <span class="option-price">₹1,14,900</span>
+                  </div>
+                  <p class="option-meta">Includes instant ₹5,000 discount • Zero processing fee</p>
+                </div>
+              </div>
+
+              <!-- Option 2: No-Cost EMI (6M) [DEFAULT SELECTED] -->
+              <div
+                class="option-card selected"
+                data-pl-option
+                data-pl-id="iphone_nocost_6m"
+                data-pl-alias="hdfc_nocost_6m"
+                data-pl-type="NO_COST_EMI"
+                data-pl-tenure="6"
+                data-pl-emi="19983.33"
+                data-pl-fee="199"
+                data-pl-down="0"
+                data-pl-lost-discount="5000"
+                data-pl-rate="0"
+                role="radio"
+                aria-checked="true"
+                tabindex="0"
+              >
+                <div class="radio-indicator"></div>
+                <div class="option-details">
+                  <div class="option-headline">
+                    <div class="name-with-tag">
+                      <span class="option-name">HDFC No-Cost EMI (6 Months)</span>
+                      <span class="badge-zero-cost">0% Stated Interest</span>
+                    </div>
+                    <span class="option-price">₹19,983.33<small>/mo</small></span>
+                  </div>
+                  <p class="option-meta">Total ₹1,19,900 + ₹199 fee • ₹5,000 instant discount forfeited</p>
+                </div>
+              </div>
+
+              <!-- Option 3: Standard EMI (12M) -->
+              <div
+                class="option-card"
+                data-pl-option
+                data-pl-id="iphone_std_12m"
+                data-pl-type="STANDARD_EMI"
+                data-pl-tenure="12"
+                data-pl-emi="10480"
+                data-pl-fee="199"
+                data-pl-down="0"
+                data-pl-lost-discount="5000"
+                data-pl-rate="15"
+                role="radio"
+                aria-checked="false"
+                tabindex="0"
+              >
+                <div class="radio-indicator"></div>
+                <div class="option-details">
+                  <div class="option-headline">
+                    <span class="option-name">Standard EMI (12 Months, 15% APR)</span>
+                    <span class="option-price">₹10,480.00<small>/mo</small></span>
+                  </div>
+                  <p class="option-meta">Bank interest: 15% p.a. • ₹199 processing fee</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Paylens Injection Mount Target -->
+          <div data-pl-mount id="paylens-mount-iphone" class="paylens-slot" aria-live="polite"></div>
+
+          <div class="purchase-actions">
+            <button class="btn-primary" type="button">Buy Now with 1-Click</button>
+            <button class="btn-secondary" type="button">Add to Shopping Cart</button>
+          </div>
+
+          <div class="trust-guarantees">
+            <div class="trust-item">
+              <span class="trust-icon">🍎</span>
+              <span>Apple India 1-Year Official Warranty</span>
+            </div>
+            <div class="trust-item">
+              <span class="trust-icon">🚚</span>
+              <span>Express Delivery Available</span>
+            </div>
+            <div class="trust-item">
+              <span class="trust-icon">🔒</span>
+              <span>Verified Serial Activation</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- SCENARIO 3: ASUS ROG STRIX G16 LAPTOP (RISKY SCENARIO)         -->
+    <!-- ============================================================== -->
+    <section
+      class="product-pdp"
+      id="product-laptop"
+      role="tabpanel"
+      aria-labelledby="tab-laptop"
+      hidden
+      data-pl-product
+      data-pl-id="rog_strix_g16"
+      data-pl-title="ASUS ROG Strix G16 Gaming Laptop"
+      data-pl-category="Laptop"
+      data-pl-list-price="145000"
+      data-pl-cash-discount="5000"
+    >
+      <div class="pdp-layout">
+        <div class="gallery-col">
+          <div class="gallery-hero laptop-hero">
+            <div class="product-badge-overlay">
+              <span class="tag-gaming">Pro Gaming</span>
+              <span class="tag-category">RTX 4070</span>
+            </div>
+            <!-- High-Fidelity SVG Graphic for ROG Gaming Laptop -->
+            <svg class="product-svg" viewBox="0 0 360 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="rogGrad" x1="40" y1="80" x2="320" y2="280" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#0F172A"/>
+                  <stop offset="1" stop-color="#1E1B4B"/>
+                </linearGradient>
+                <linearGradient id="neonCyan" x1="60" y1="180" x2="300" y2="180" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#06B6D4"/>
+                  <stop offset="1" stop-color="#3B82F6"/>
+                </linearGradient>
+              </defs>
+              <!-- Screen Base -->
+              <rect x="55" y="70" width="250" height="160" rx="12" fill="url(#rogGrad)" stroke="#334155" stroke-width="3"/>
+              <!-- Screen Display -->
+              <rect x="65" y="80" width="230" height="140" rx="6" fill="#090D16"/>
+              <!-- ROG Eye Glow -->
+              <path d="M160 135 L200 125 L185 165 Z" fill="#EF4444"/>
+              <path d="M150 145 C150 145, 175 170, 205 155" stroke="#EF4444" stroke-width="4" stroke-linecap="round"/>
+              <!-- Bottom Keyboard Chassis -->
+              <polygon points="35,260 325,260 295,230 65,230" fill="#1E293B"/>
+              <!-- Neon Underglow Bar -->
+              <line x1="45" y1="262" x2="315" y2="262" stroke="url(#neonCyan)" stroke-width="4" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="gallery-features">
+            <div class="feature-chip">⚡ Intel i9-14900HX</div>
+            <div class="feature-chip">🎮 RTX 4070 8GB</div>
+            <div class="feature-chip">🖥️ 240Hz Nebula Display</div>
+          </div>
+        </div>
+
+        <div class="details-col">
+          <nav class="breadcrumb" aria-label="Breadcrumb">
+            <a href="#">Electronics</a> &gt; <a href="#">Computers</a> &gt; <span aria-current="page">Gaming Laptops</span>
+          </nav>
+
+          <h1 class="product-title">ASUS ROG Strix G16 (2025) Gaming Laptop</h1>
+          <p class="product-model">Model: G614JIR-N4003WS • 16" QHD+ 240Hz • 32GB DDR5 • 1TB PCIe 4.0 SSD</p>
+
+          <div class="rating-strip">
+            <div class="stars">★★★★★</div>
+            <span class="rating-val">4.7</span>
+            <span class="rating-count">(890 customer ratings)</span>
+            <span class="stock-status in-stock">● In Stock (Only 3 units left)</span>
+          </div>
+
+          <div class="price-box">
+            <div class="price-row">
+              <span class="current-price">₹1,40,000</span>
+              <span class="original-price">₹1,45,000</span>
+              <span class="discount-badge">Save ₹5,000 (3% OFF)</span>
+            </div>
+            <p class="cash-discount-note">
+              🏷️ <strong>₹5,000 Instant Prepaid Discount</strong> included in cash price.
+            </p>
+          </div>
+
+          <div class="payment-selection-section">
+            <div class="section-header">
+              <h2 class="section-title">Select Payment Method</h2>
+              <span class="section-hint">High-value consumer financing</span>
+            </div>
+
+            <div class="options-group" role="radiogroup" aria-label="ASUS ROG Strix G16 Payment Options">
+              <!-- Option 1: Cash Full -->
+              <div
+                class="option-card"
+                data-pl-option
+                data-pl-id="cash_full"
+                data-pl-type="CASH"
+                data-pl-tenure="1"
+                data-pl-emi="140000"
+                data-pl-fee="0"
+                data-pl-down="0"
+                data-pl-lost-discount="0"
+                data-pl-rate="0"
+                role="radio"
+                aria-checked="false"
+                tabindex="0"
+              >
+                <div class="radio-indicator"></div>
+                <div class="option-details">
+                  <div class="option-headline">
+                    <span class="option-name">Full Payment (Upfront)</span>
+                    <span class="option-price">₹1,40,000</span>
+                  </div>
+                  <p class="option-meta">Includes ₹5,000 prepaid discount • Single transaction</p>
+                </div>
+              </div>
+
+              <!-- Option 2: Standard EMI (12M, 15% APR) [DEFAULT SELECTED] -->
+              <div
+                class="option-card selected"
+                data-pl-option
+                data-pl-id="laptop_std_12m"
+                data-pl-alias="standard_12m"
+                data-pl-type="STANDARD_EMI"
+                data-pl-tenure="12"
+                data-pl-emi="13160"
+                data-pl-fee="999"
+                data-pl-down="0"
+                data-pl-lost-discount="5000"
+                data-pl-rate="15"
+                role="radio"
+                aria-checked="true"
+                tabindex="0"
+              >
+                <div class="radio-indicator"></div>
+                <div class="option-details">
+                  <div class="option-headline">
+                    <div class="name-with-tag">
+                      <span class="option-name">Standard EMI (12 Months, 15% APR)</span>
+                      <span class="badge-tenure">12 Months</span>
+                    </div>
+                    <span class="option-price">₹13,160.00<small>/mo</small></span>
+                  </div>
+                  <p class="option-meta">Bank interest: 15% p.a. • ₹999 fee • Total repayment ₹1,58,919</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Paylens Injection Mount Target -->
+          <div data-pl-mount id="paylens-mount-laptop" class="paylens-slot" aria-live="polite"></div>
+
+          <div class="purchase-actions">
+            <button class="btn-primary" type="button">Buy Now with 1-Click</button>
+            <button class="btn-secondary" type="button">Add to Shopping Cart</button>
+          </div>
+
+          <div class="trust-guarantees">
+            <div class="trust-item">
+              <span class="trust-icon">💻</span>
+              <span>2-Year ASUS ROG Global On-Site Warranty</span>
+            </div>
+            <div class="trust-item">
+              <span class="trust-icon">🚚</span>
+              <span>Insured Transit & Signature Delivery</span>
+            </div>
+            <div class="trust-item">
+              <span class="trust-icon">🎁</span>
+              <span>Free ROG Gaming Backpack & Mouse Included</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Storefront Footer -->
+  <footer class="store-footer">
+    <div class="footer-container">
+      <div class="footer-col">
+        <h4>Apex Electronics Store</h4>
+        <p>Demonstration e-commerce platform for Paylens Affordability Copilot testing and evaluation.</p>
+        <p class="copyright">© 2026 ApexStore India Pvt Ltd. Pure Mock Architecture.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Demo Guide</h4>
+        <ul>
+          <li><strong>Sony Headphones</strong>: Comfortable tier (11.3% FOIR), reveals 30.74% Hidden EAR.</li>
+          <li><strong>iPhone 16 Pro</strong>: Stretch tier (31.3% FOIR), -20% salary cut triggers deficit.</li>
+          <li><strong>Gaming Laptop</strong>: Risky tier (45.2% FOIR), immediate -₹2,400 monthly deficit.</li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+
+  <script src="shop.js"></script>
+</body>
+</html>
