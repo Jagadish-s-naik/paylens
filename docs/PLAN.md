@@ -328,9 +328,9 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
 
 ### Sub-stage 3.5: Final Polish & Repository Deliverables
 - [x] **Task 3.5.1: Clean Repository & Submission Check**  
-  - Update [`README.md`](file:///c:/xampp/htdocs/Paylens/README.md) with demo script, architecture diagram, and unpacked extension install instructions.
-  - Delete legacy files (`auditor.py`, `plan.py`, `offer.py`, `cross_check.py`) and obsolete root test files.
-  - Confirm `python3 -m pytest tests/` passes 100% (64/64 tests).
+  - Update [`README.md`](../README.md) with demo script, architecture diagram, and unpacked extension install instructions.
+  - Delete legacy pre-refactor files (`main.py`, `config.py`, `tax.py`, `emi.py`, `extract.py`, `translate.py`, `test_cloud_smoke.py`, `benchmark_extraction.py`, `auditor.py`, `plan.py`, `offer.py`, `cross_check.py`) and move `generate_samples.py` to `scripts/`.
+  - Configure `pytest.ini` (`pythonpath = .`, `testpaths = tests`) and confirm `.venv/bin/pytest` passes 100% (64/64 tests).
 
 ---
 

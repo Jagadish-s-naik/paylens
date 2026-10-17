@@ -149,8 +149,21 @@ To point to your local backend, change `API_BASE` to `"http://127.0.0.1:8000"`.
 
 ### Full Automated Pytest Suite (64/64 Passing)
 All 64 unit and integration tests across core financial math, API routes, and AI grounding pass with 100% reliability:
-```powershell
-$env:PYTHONIOENCODING='utf-8'; .\.venv\Scripts\python.exe -m pytest tests/
+```bash
+# Linux / macOS
+.venv/bin/pytest
+
+# Windows
+.\.venv\Scripts\python.exe -m pytest
+```
+
+### End-to-End 7-Step Checklist Runner
+```bash
+# Against local FastAPI
+.venv/bin/python scripts/verify_checklist.py
+
+# Against Production Cloud Run
+.venv/bin/python scripts/verify_checklist.py --url https://paylens-986743332275.asia-south1.run.app
 ```
 
 | Test Module | Test Focus | Status |
@@ -175,8 +188,12 @@ $env:PYTHONIOENCODING='utf-8'; .\.venv\Scripts\python.exe -m pytest tests/
 ## 🎤 60-Second Live Hackathon Pitch Script
 
 An automated CLI coach validates all 14 spoken numbers in real time against live system APIs:
-```powershell
-$env:PYTHONIOENCODING='utf-8'; .\.venv\Scripts\python.exe scripts/rehearse_demo.py --auto
+```bash
+# Linux / macOS
+.venv/bin/python scripts/rehearse_demo.py --auto
+
+# Windows
+.\.venv\Scripts\python.exe scripts/rehearse_demo.py --auto
 ```
 
 ### **Act 0: The Hook & Truth Layer (0:00 – 0:12)**
