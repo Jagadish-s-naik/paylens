@@ -18,7 +18,7 @@ cmd = [
     "--source", ".",
     "--region", "asia-south1",
     "--allow-unauthenticated",
-    "--max-instances", "3",
+    "--max-instances", "1",
     "--min-instances", "0",
     "--memory", "512Mi",
     "--cpu", "1",

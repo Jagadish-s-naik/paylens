@@ -84,34 +84,34 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
 ```
 
 ### Sub-stage A.1: API Error Envelope & Dependencies (`app/api/`)
-- [ ] **Task A.1.1: Error Envelope & Custom Exceptions (`app/api/errors.py`)**  
+- [x] **Task A.1.1: Error Envelope & Custom Exceptions (`app/api/errors.py`)**  
   Implement the standard error envelope specified in [`ARCHITECTURE.md` §7.3](file:///home/shamblonaut/dev/clones/paylens/ARCHITECTURE.md#L206-L218):
   ```json
   { "error": { "code": "VALIDATION", "message": "...", "details": { "field": "..." } } }
   ```
   Define custom exception types: `PaylensAPIException`, `ValidationException` (422), `UnsupportedSchemaException` (422), `OptionNotFoundException` (404), `MissingInstallIdException` (400), `RateLimitedException` (429), `AIUnavailableException` (503). Ensure 500 internal errors never leak stack traces.
-- [ ] **Task A.1.2: Settings & Configuration (`app/config.py`)**  
+- [x] **Task A.1.2: Settings & Configuration (`app/config.py`)**  
   Align `Settings` with [`ARCHITECTURE.md` §13](file:///home/shamblonaut/dev/clones/paylens/ARCHITECTURE.md#L386-L398): `GEMINI_MODEL`, `GEMINI_API_KEY`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `PAYLENS_OFFLINE` (default 0), `RATE_LIMIT_PER_HOUR` (default 20), `GEMINI_DAILY_CAP` (default 300), `CORS_ORIGINS`, `MAX_UPLOAD_MB` (default 5).
-- [ ] **Task A.1.3: Security Headers & Rate Limiting (`app/api/deps.py`)**  
+- [x] **Task A.1.3: Security Headers & Rate Limiting (`app/api/deps.py`)**  
   Implement FastAPI dependencies:
   - `require_install_id`: Validates `X-Install-Id` UUID header on AI routes (`/api/afford/explain`, `/api/profile/build`, `/api/listing/parse`), returning `400 MISSING_INSTALL_ID` if absent. Logged only (optional) on `/api/afford`.
   - `check_ai_rate_limit`: Sliding-window in-memory limiter (20 req/hour per install ID) and global daily cap counter (300 req/day). Over limit → `429 RATE_LIMITED` with `Retry-After`.
   - Core route `/api/afford` and demo profiles route `/api/demo/profiles` are **unthrottled**.
 
 ### Sub-stage A.2: Core Affordability & Profile Routes
-- [ ] **Task A.2.1: Deterministic Evaluation Route (`app/api/routes_afford.py`)**  
+- [x] **Task A.2.1: Deterministic Evaluation Route (`app/api/routes_afford.py`)**  
   Implement `POST /api/afford`:
   - Request body: `{ profile: VerifiedProfile, listing: Listing, selected_option_id: str }`.
   - Validate that `selected_option_id` exists in `listing.payment_options` (raise `404 OPTION_NOT_FOUND` if missing).
   - Recompute derived fields in `VerifiedProfile` and `effective_cash_price` in `Listing` (raise `422 VALIDATION` if client submitted conflicting figures per D8).
   - Call pure `engine.evaluate()` and `alternatives.generate_alternatives()`.
   - Return the completed `Verdict` contract. Target latency: **p95 < 50ms**, zero network calls, zero LLMs.
-- [ ] **Task A.2.2: Demo Personas & Health Routes (`app/api/routes_profile.py`, `app/main.py`)**  
+- [x] **Task A.2.2: Demo Personas & Health Routes (`app/api/routes_profile.py`, `app/main.py`)**  
   - Implement `GET /api/demo/profiles`: Returns canonical personas matching `scripts/compute_fixtures.py` (Rahul Sharma, Amit Verma, Vikram Malhotra).
   - Implement `GET /api/health`: Returns `{ status: "ok", version: "1.0.0", ai_available: bool }`.
 
 ### Sub-stage A.3: FastAPI Assembly & Early Cloud Run Smoke Deploy
-- [ ] **Task A.3.1: App Factory, CORS & Static Mount Setup (`app/main.py`)**  
+- [x] **Task A.3.1: App Factory, CORS & Static Mount Setup (`app/main.py`)**  
   - Initialize FastAPI application with title `"Paylens API"`.
   - Configure CORS allowing `localhost`, Cloud Run origins, and `chrome-extension://*`.
   - Register custom exception handlers and request size limiter (6 MB max body).
@@ -122,18 +122,18 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
   - Verify `GET /api/health` and `POST /api/afford` on the live Cloud Run URL.
 
 ### Sub-stage A.4: Multimodal Payslip Extraction (`app/ai/`)
-- [ ] **Task A.4.1: Gemini Client Wrapper (`app/ai/client.py`)**  
+- [x] **Task A.4.1: Gemini Client Wrapper (`app/ai/client.py`)**  
   - Lazy initialization of `google.genai.Client` (Vertex AI ADC or `GEMINI_API_KEY`).
   - Enforce timeout (20s) and max 1 retry.
   - Implement circuit breaker: when `PAYLENS_OFFLINE=1` or daily cap exceeded, raise `AIUnavailableException(fallback="manual_entry")`.
-- [ ] **Task A.4.2: Multimodal Payslip OCR & Sanity Gates (`app/ai/extract_payslip.py`, `app/core/validate.py`)**  
+- [x] **Task A.4.2: Multimodal Payslip OCR & Sanity Gates (`app/ai/extract_payslip.py`, `app/core/validate.py`)**  
   - Extract structured JSON conforming to `PayslipData` schema: basic, hra, allowances, gross, pf, professional tax, tds, net pay.
   - Run deterministic validation gates G1–G3 (gross consistency, deductions consistency, net boundary). Flag inconsistent fields for user review without silently altering numbers.
-- [ ] **Task A.4.3: Implement Profile Build Endpoint (`app/api/routes_profile.py`)**  
+- [x] **Task A.4.3: Implement Profile Build Endpoint (`app/api/routes_profile.py`)**  
   - Implement `POST /api/profile/build`: Accepts multipart upload (`file` ≤ 5MB) + user inputs (tax regime, rent, savings, EMIs). Process in-memory only, return `{ profile, extraction, validation }`, zero disk/DB persistence. If `PAYLENS_OFFLINE=1`, return mock from `samples/ground_truth.json`.
 
 ### Sub-stage A.5: Numeric Grounding Guard & Regional Explanations
-- [ ] **Task A.5.1: Grounding Guard & Explanations (`app/ai/explain.py`, `app/ai/templates.py`)**  
+- [x] **Task A.5.1: Grounding Guard & Explanations (`app/ai/explain.py`, `app/ai/templates.py`)**  
   - Define static template strings in English, Hindi, and Kannada.
   - Implement `generate_explanation(verdict, language, client)`:
     - Calls Gemini with `temperature=0` to generate 4–5 concise bullet points in target language.
@@ -142,12 +142,12 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
       2. Normalize formatting.
       3. Assert every extracted number appears in `verdict` or `profile` (within 1% rounding).
       4. If *any* number fails to match, discard Gemini output and return static template (`source: "template"`). Mechanical enforcement of P1!
-- [ ] **Task A.5.2: Connect `/api/afford/explain` and Fallback Listing Route**  
+- [x] **Task A.5.2: Connect `/api/afford/explain` and Fallback Listing Route**  
   - Wire `POST /api/afford/explain` with rate limiting.
   - Implement `POST /api/listing/parse` in `app/api/routes_listing.py` (Gemini text-to-listing fallback).
 
 ### Sub-stage A.6: Backend Test Suite
-- [ ] **Task A.6.1: API & AI Unit Tests (`tests/api/`, `tests/ai/`)**  
+- [x] **Task A.6.1: API & AI Unit Tests (`tests/api/`, `tests/ai/`)**  
   - `tests/api/test_routes_afford.py`: Golden fixtures evaluation across Rahul Sony, Rahul iPhone, Amit Laptop.
   - `tests/api/test_errors.py`: Validation (422), Missing Option (404), Missing Install ID (400), Rate Limit (429).
   - `tests/ai/test_grounding_guard.py`: Assert guard rejects hallucinated numbers and accepts exact numbers (no live Gemini in CI).
