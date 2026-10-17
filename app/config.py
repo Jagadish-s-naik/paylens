@@ -1,29 +1,47 @@
+"""
+app/config.py
+System-wide configuration matching ARCHITECTURE.md §13.
+"""
+
 import os
-from pydantic import BaseModel
+from typing import List
+from pydantic import BaseModel, Field
+
 
 class Settings(BaseModel):
-    PROJECT_ID: str = os.getenv("GCP_PROJECT", os.getenv("GOOGLE_CLOUD_PROJECT", "paylens-fintech"))
-    REGION: str = os.getenv("GCP_REGION", "asia-south1")
-    VERTEX_LOCATION: str = os.getenv("VERTEX_LOCATION", "us-central1")
-    AI_BACKEND: str = os.getenv("AI_BACKEND", "vertex")  # "vertex" or "aistudio"
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    # Gemini & Google Cloud
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    GOOGLE_CLOUD_PROJECT: str = os.getenv(
+        "GOOGLE_CLOUD_PROJECT",
+        os.getenv("GCP_PROJECT", "paylens-fintech"),
+    )
+    GOOGLE_CLOUD_LOCATION: str = os.getenv(
+        "GOOGLE_CLOUD_LOCATION",
+        os.getenv("GCP_REGION", "asia-south1"),
+    )
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 
-    # Guardrails & Budgets
-    MAX_UPLOAD_SIZE_BYTES: int = 5 * 1024 * 1024
-    MAX_EXPLANATION_TOKENS: int = 2048
-    MAX_EXTRACTION_TOKENS: int = 2048
-    RATE_LIMIT_PER_HOUR: int = 20
-    DAILY_GEMINI_CALL_LIMIT: int = 300
+    # Mode & Fallback
+    PAYLENS_OFFLINE: int = int(os.getenv("PAYLENS_OFFLINE", "0"))
 
-    # Affordability Engine Thresholds
-    SAFE_FOIR_MAX: float = 0.35
-    STRETCH_FOIR_MAX: float = 0.50
-    SAFE_FREE_CASH_RATIO: float = 0.20
-    STRETCH_FREE_CASH_RATIO: float = 0.05
-    EMERGENCY_CUSHION_MONTHS: float = 3.0
-    MIN_RUNWAY_STRETCH: float = 2.0
-    HIGH_APR_THRESHOLD: float = 18.0
-    SIGNIFICANT_MARKUP_RUPEES: float = 1500.0
+    # Security & Rate Limiting (AI routes)
+    RATE_LIMIT_PER_HOUR: int = int(os.getenv("RATE_LIMIT_PER_HOUR", "20"))
+    GEMINI_DAILY_CAP: int = int(os.getenv("GEMINI_DAILY_CAP", "300"))
+    MAX_UPLOAD_MB: int = int(os.getenv("MAX_UPLOAD_MB", "5"))
+
+    # CORS
+    CORS_ORIGINS_RAW: str = os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000,chrome-extension://*",
+    )
+
+    @property
+    def cors_origins(self) -> List[str]:
+        return [origin.strip() for origin in self.CORS_ORIGINS_RAW.split(",") if origin.strip()]
+
+    @property
+    def max_upload_bytes(self) -> int:
+        return self.MAX_UPLOAD_MB * 1024 * 1024
+
 
 settings = Settings()
