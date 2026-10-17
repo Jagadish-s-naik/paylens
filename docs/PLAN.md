@@ -230,7 +230,7 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
     - Handlers for `PROFILE_GET`, `PROFILE_SET`, `DEMO_PROFILES`, `SETTINGS_GET/SET`.
 
 ### Sub-stage B.3: Storefront DOM Adapter (`extension/content/adapters/`)
-- [ ] **Task B.3.1: Implement Mock Shop Adapter (`extension/content/adapters/mock_shop.js`)**  
+- [x] **Task B.3.1: Implement Mock Shop Adapter (`extension/content/adapters/mock_shop.js`)**  
   Implement the adapter contract from [`ARCHITECTURE.md` §8.4](file:///home/shamblonaut/dev/clones/paylens/ARCHITECTURE.md#L273-L289):
   - `matches(url)`: Returns true for `/mock-shop/*` or local file path containing `mock-shop`.
   - `extract(document)`: Parses `data-pl-product`, list price, cash discount, and payment options into a `Listing` structure. Returns `null` on failure (never throws).
@@ -239,11 +239,11 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
   - `observe(document, onChange)`: Sets up `MutationObserver` on the options container with 150ms debounce. Returns cleanup disconnect function.
 
 ### Sub-stage B.4: Open Shadow DOM Verdict Card UI (`extension/content/`)
-- [ ] **Task B.4.1: Scoped Card CSS & Shadow Root Host (`extension/content/card.css`, `extension/content/card.js`)**  
+- [x] **Task B.4.1: Scoped Card CSS & Shadow Root Host (`extension/content/card.css`, `extension/content/card.js`)**  
   - Inject open shadow root into `<div id="paylens-host">` at mount point.
   - Fetch `card.css` via `chrome.runtime.getURL` and inject directly inside the shadow root. Host page styles cannot bleed in or override!
   - Card states: `loading` (shimmer), `no-profile` (call-to-action button to options page), `error` (retry button), `verdict` (full breakdown).
-- [ ] **Task B.4.2: Structured Financial Breakdown Hierarchy**  
+- [x] **Task B.4.2: Structured Financial Breakdown Hierarchy**  
   Render elements in strict order per [`ARCHITECTURE.md` §8.6](file:///home/shamblonaut/dev/clones/paylens/ARCHITECTURE.md#L321-L327):
   1. **Badge & Reason**: 🟢 `COMFORTABLE` / 🟡 `STRETCH` / 🔴 `RISKY` badge with clear headline reason.
   2. **True Cost Box**:
@@ -254,11 +254,11 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
   4. **Stress Test Rows**: -20% Income Cut status and deficit; March shock (rendered only when `applicable == true`).
   5. **Smart Alternatives**: Re-scored badges ("Buy in Cash Today", "Wait & Save" with dynamic roll-off, hypothetical part-payment). Infeasible options marked "Not possible today".
   6. **Assumptions Footer**: Collapsible heuristic notes & statutory financial disclaimer.
-- [ ] **Task B.4.3: Content Script Orchestrator (`extension/content/content.js`)**  
+- [x] **Task B.4.3: Content Script Orchestrator (`extension/content/content.js`)**  
   Connects adapter extraction, service worker messaging, and shadow DOM card updates.
 
 ### Sub-stage B.5: Options Page Onboarding & Profile Builder (`extension/options/`)
-- [ ] **Task B.5.1: Build Onboarding UI (`options.html`, `options.css`, `options.js`)**  
+- [x] **Task B.5.1: Build Onboarding UI (`options.html`, `options.css`, `options.js`)**  
   - **1-Click Demo Persona Buttons**: Instant buttons for *"Rahul (12 LPA Fresher)"*, *"Amit (Junior Dev)"*, and *"Vikram (Senior Dev)"*. Loads complete verified profile into `chrome.storage.local` instantly.
   - **Payslip Upload Dropzone**: Accepts PDF, PNG, JPG (≤ 5MB). In mock mode, pre-fills with ground truth sample data.
   - **Itemized Breakdown Review**: Form fields for basic, hra, gross, pf, pt, tds, and net verified in-hand.
@@ -266,7 +266,7 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
   - **Validation Banner**: Displays G1–G3 sanity check results.
 
 ### Sub-stage B.6: Action Popup & Persona Switcher (`extension/popup/`)
-- [ ] **Task B.6.1: Build Inspection Widget (`popup.html`, `popup.css`, `popup.js`)**  
+- [x] **Task B.6.1: Build Inspection Widget (`popup.html`, `popup.css`, `popup.js`)**  
   - Lightweight instant-load widget:
     - User name and verified monthly take-home.
     - Emergency savings runway summary.
