@@ -4,12 +4,14 @@ Automated End-to-End Checklist Runner (§3.7) for Paylens.
 Tests the live FastAPI server at http://127.0.0.1:8000 across all 7 steps.
 """
 
+import os
 import sys
 import time
 import uuid
+import argparse
 import httpx
 
-BASE_URL = "http://127.0.0.1:8000"
+DEFAULT_BASE_URL = os.environ.get("PAYLENS_API_URL", "http://127.0.0.1:8000")
 
 # ANSI Terminal Color Helpers
 GREEN = "\033[92m"
@@ -32,14 +34,14 @@ def assert_condition(condition: bool, description: str, actual_val=None):
         raise AssertionError(f"Step check failed: {description}")
 
 
-def main():
+def main(base_url: str = DEFAULT_BASE_URL):
     print(f"{BOLD}{GREEN}Starting Paylens Phase 3 Stage 3.2 End-to-End Verification Checklist...{RESET}")
-    print(f"Target backend: {BASE_URL}")
+    print(f"Target backend: {base_url}")
 
     install_id = str(uuid.uuid4())
     headers = {"X-Install-Id": install_id}
 
-    with httpx.Client(base_url=BASE_URL, timeout=10.0) as client:
+    with httpx.Client(base_url=base_url, timeout=15.0) as client:
         # =====================================================================
         # Step 1: Onboarding Profile Verification
         # =====================================================================
@@ -333,8 +335,12 @@ def main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Paylens Phase 3 Stage 3.2 End-to-End Verification Checklist")
+    parser.add_argument("--url", default=DEFAULT_BASE_URL, help="Base URL for Paylens API (default: http://127.0.0.1:8000 or $PAYLENS_API_URL)")
+    args = parser.parse_args()
+
     try:
-        sys.exit(main())
+        sys.exit(main(base_url=args.url))
     except Exception as e:
         print(f"\n{BOLD}{RED}Verification failed with error: {e}{RESET}")
         sys.exit(1)
