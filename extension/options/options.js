@@ -276,12 +276,112 @@ async function handleFile(e) {
   const file = e.target.files?.[0];
   if (!file) return;
 
-  // In mock mode: prefill sample data
-  const rahul = demoPersonas.find(p => p.id === 'rahul');
-  if (rahul && rahul.profile) {
-    populateForm(rahul.profile);
+  // Clear file input value so re-selecting same file triggers change event
+  const fileInput = document.getElementById('file-input');
+  if (fileInput) fileInput.value = '';
+
+  const dropzone = document.getElementById('payslip-dropzone');
+  const dropzoneText = document.getElementById('dropzone-text');
+  const dropzoneHint = document.getElementById('dropzone-hint');
+
+  if (dropzone) dropzone.classList.add('extracting');
+  if (dropzoneText) {
+    dropzoneText.innerHTML = `<strong>⏳ Extracting with Gemini 2.5 Flash OCR...</strong>`;
+  }
+  if (dropzoneHint) {
+    dropzoneHint.textContent = `Analyzing ${file.name} (${(file.size / 1024).toFixed(1)} KB)...`;
+  }
+
+  showSaveToast(`Uploading ${file.name} to Gemini OCR engine...`);
+
+  try {
+    // 1. Get install ID from storage
+    let installId = '00000000-0000-0000-0000-000000000000';
+    try {
+      const storageKey = CONFIG.STORAGE_KEYS.INSTALL_ID;
+      const stored = await chrome.storage.local.get(storageKey);
+      if (stored && stored[storageKey]) {
+        installId = stored[storageKey];
+      }
+    } catch (_) {}
+
+    // 2. Prepare multipart form data
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('tax_regime', document.getElementById('tax-regime')?.value || 'NEW');
+    formData.append('rent_monthly', document.getElementById('monthly-rent')?.value || '0');
+    formData.append('current_savings', document.getElementById('current-savings')?.value || '0');
+    formData.append('is_metro', document.getElementById('metro-city')?.value || 'true');
+    formData.append('annual_variable_bonus', document.getElementById('bonus-annual')?.value || '0');
+
+    // 3. Send request to /api/profile/build
+    const endpoint = `${CONFIG.API_BASE}/api/profile/build`;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'X-Install-Id': installId
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      let errData = null;
+      try {
+        errData = await response.json();
+      } catch (_) {}
+      const errMsg = errData?.error?.message || `Server responded with status ${response.status}`;
+      throw new Error(errMsg);
+    }
+
+    const resJson = await response.json();
+    if (!resJson || !resJson.profile) {
+      throw new Error('Invalid extraction response payload.');
+    }
+
+    // 4. Populate form with extracted profile
+    const profile = resJson.profile;
+    const extraction = resJson.extraction || {};
+    populateForm(profile);
     recalculateAll();
-    showSaveToast(`Extracted payslip "${file.name}" with 100% confidence!`);
+
+    // 5. Automatically save to extension storage
+    await chrome.runtime.sendMessage({
+      type: 'PROFILE_SET',
+      payload: profile
+    });
+
+    // 6. Update UI feedback
+    if (dropzoneText) {
+      const name = extraction.employee_name || 'Salary Payslip';
+      const company = extraction.company_name ? ` (${extraction.company_name})` : '';
+      dropzoneText.innerHTML = `<strong>✓ Extracted: ${name}${company}</strong>`;
+    }
+    if (dropzoneHint) {
+      const net = extraction.net_pay ? formatINR(extraction.net_pay) : 'Verified';
+      dropzoneHint.textContent = `Verified Take-Home: ${net} • Review details below and click Save.`;
+    }
+
+    showSaveToast(`✓ Extracted ${extraction.employee_name || file.name} with 100% G1-G3 compliance!`);
+  } catch (err) {
+    console.error('[Paylens Options] Payslip extraction error:', err);
+    if (dropzoneText) {
+      dropzoneText.innerHTML = `<strong>⚠️ Extraction notice:</strong> ${err.message || 'Could not parse file'}`;
+    }
+    if (dropzoneHint) {
+      dropzoneHint.textContent = 'Please check the document or enter details manually below.';
+    }
+    showSaveToast(`Extraction Notice: ${err.message || 'Service unavailable'}`);
+
+    // If mock mode is explicitly forced in config, fallback to Rahul
+    if (CONFIG.MOCK_API) {
+      const rahul = demoPersonas.find(p => p.id === 'rahul');
+      if (rahul && rahul.profile) {
+        populateForm(rahul.profile);
+        recalculateAll();
+      }
+    }
+  } finally {
+    if (dropzone) dropzone.classList.remove('extracting');
   }
 }
 

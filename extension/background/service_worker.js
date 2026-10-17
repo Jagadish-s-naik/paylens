@@ -338,11 +338,18 @@ async function handleProfileBuild(payload) {
     };
   }
 
+  // Live API Branch: Options page performs direct FormData stream to /api/profile/build
+  if (payload && payload.profile) {
+    const profileKey = CONFIG.STORAGE_KEYS.PROFILE;
+    await chrome.storage.local.set({ [profileKey]: payload.profile });
+    return { ok: true, data: { profile: payload.profile } };
+  }
+
   return {
     ok: false,
     error: {
-      code: 'NOT_IMPLEMENTED',
-      message: 'Live OCR upload requires active FastAPI backend.'
+      code: 'DIRECT_STREAM_REQUIRED',
+      message: 'Payslip upload streams directly from Options Page to /api/profile/build.'
     }
   };
 }

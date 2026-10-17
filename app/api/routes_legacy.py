@@ -203,3 +203,31 @@ def generate_briefing_endpoint(payload: ExplainBriefingRequest) -> Dict[str, Any
         "Beware of hidden processing fees and forfeited cash discounts on 'No-Cost' EMI schemes.",
     ]
     return {"bullets": bullets}
+
+
+@router.post("/extract")
+async def legacy_extract_payslip_endpoint(
+    file: UploadFile = File(..., description="Payslip document (PDF or image)"),
+) -> Dict[str, Any]:
+    """Backwards-compatible payslip extraction endpoint for the web dashboard."""
+    try:
+        file_bytes = await file.read()
+        filename = file.filename or "payslip.pdf"
+        content_type = file.content_type or "application/pdf"
+        extraction, validation = extract_payslip(
+            file_bytes=file_bytes,
+            mime_type=content_type,
+            filename=filename,
+        )
+        return {
+            "success": True,
+            "data": extraction.model_dump(),
+            "validation": validation.to_dict(),
+        }
+    except Exception as exc:
+        return {
+            "success": False,
+            "message": f"Extraction failed: {str(exc)}",
+            "data": None,
+        }
+
