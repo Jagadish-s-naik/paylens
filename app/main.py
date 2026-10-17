@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -25,6 +25,7 @@ from app.api.errors import (
 from app.api.routes_afford import router as afford_router
 from app.api.routes_profile import router as profile_router
 from app.api.routes_listing import router as listing_router
+from app.api.routes_legacy import router as legacy_router
 
 app = FastAPI(
     title="Paylens API",
@@ -91,12 +92,34 @@ async def health_check():
     }
 
 
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+async def serve_root():
+    """Serves the Paylens web interface or documentation landing."""
+    static_index = root_path / "static" / "index.html"
+    if static_index.is_file():
+        return HTMLResponse(content=static_index.read_text(encoding="utf-8"))
+    return HTMLResponse(
+        content="""
+        <!DOCTYPE html>
+        <html>
+            <head><title>Paylens API</title></head>
+            <body style="font-family: system-ui, sans-serif; text-align: center; padding: 60px;">
+                <h1>Paylens Affordability Copilot API</h1>
+                <p>The backend service is healthy and operational.</p>
+                <p><a href="/docs">View Interactive Swagger Docs (/docs)</a> &bull; <a href="/api/health">Health (/api/health)</a></p>
+            </body>
+        </html>
+        """
+    )
+
+
 # ---------------------------------------------------------------------
 # 5. ROUTE REGISTRATION
 # ---------------------------------------------------------------------
 app.include_router(afford_router)
 app.include_router(profile_router)
 app.include_router(listing_router)
+app.include_router(legacy_router)
 
 # ---------------------------------------------------------------------
 # 6. STATIC MOUNTS (Graceful for mock-shop & demo)

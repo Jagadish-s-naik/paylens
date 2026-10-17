@@ -116,10 +116,10 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
   - Configure CORS allowing `localhost`, Cloud Run origins, and `chrome-extension://*`.
   - Register custom exception handlers and request size limiter (6 MB max body).
   - Conditionally mount `mock-shop/` via `StaticFiles` if the directory exists (gracefully skips if Track B is still writing it).
-- [ ] **Task A.3.2: Early Cloud Run Smoke Deployment (`paylens-smoke`)**  
+- [x] **Task A.3.2: Early Cloud Run Smoke Deployment (`paylens-smoke`)**  
   - Clean [`Dockerfile`](file:///home/shamblonaut/dev/clones/paylens/Dockerfile) (`python:3.12-slim`, minimal requirements).
-  - Run [`deploy_to_cloud.py`](file:///home/shamblonaut/dev/clones/paylens/deploy_to_cloud.py) to provision `paylens-smoke` on Cloud Run (`asia-south1`, `--max-instances=1`).
-  - Verify `GET /api/health` and `POST /api/afford` on the live Cloud Run URL.
+  - Run [`deploy_to_cloud.py`](file:///home/shamblonaut/dev/clones/paylens/deploy_to_cloud.py) to provision `paylens` on Cloud Run (`asia-south1`, `--max-instances=1`).
+  - Verified `GET /api/health`, `GET /api/demo/profiles`, `POST /api/afford`, and `POST /api/afford/explain` on live Cloud Run URL: `https://paylens-986743332275.asia-south1.run.app`.
 
 ### Sub-stage A.4: Multimodal Payslip Extraction (`app/ai/`)
 - [x] **Task A.4.1: Gemini Client Wrapper (`app/ai/client.py`)**  

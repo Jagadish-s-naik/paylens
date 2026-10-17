@@ -23,6 +23,12 @@ def test_health_route():
     assert "ai_available" in data
 
 
+def test_root_route():
+    res = client.get("/")
+    assert res.status_code == 200
+    assert "Paylens" in res.text
+
+
 def test_demo_profiles_route():
     res = client.get("/api/demo/profiles")
     assert res.status_code == 200
