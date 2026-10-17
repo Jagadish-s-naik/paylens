@@ -543,3 +543,115 @@ export const MOCK_DATA = {
     }
   }
 };
+
+/**
+ * Returns the canonical demo personas for 1-click loading.
+ */
+export function getDemoPersonas() {
+  return [
+    {
+      id: "rahul",
+      name: "Rahul Sharma",
+      title: "12 LPA Fresher (Clean Slate)",
+      profileId: "prof_rahul",
+      inHandMonthly: 75000.0,
+      currentSavings: 150000.0,
+      existingEmiMonthly: 3500.0,
+      taxRegime: "NEW",
+      profile: MOCK_DATA.profiles.rahul
+    },
+    {
+      id: "amit",
+      name: "Amit Verma",
+      title: "Junior Dev (Overleveraged)",
+      profileId: "prof_amit",
+      inHandMonthly: 46800.0,
+      currentSavings: 25000.0,
+      existingEmiMonthly: 8000.0,
+      taxRegime: "NEW",
+      profile: MOCK_DATA.profiles.amit
+    },
+    {
+      id: "vikram",
+      name: "Vikram Malhotra",
+      title: "Senior Dev (Old Regime TDS Spike)",
+      profileId: "prof_vikram",
+      inHandMonthly: 88000.0,
+      currentSavings: 200000.0,
+      existingEmiMonthly: 0.0,
+      taxRegime: "OLD",
+      profile: MOCK_DATA.profiles.vikram
+    }
+  ];
+}
+
+/**
+ * Resolves the golden pre-computed verdict from local memory.
+ * Used when CONFIG.MOCK_API is true.
+ */
+export function resolveMockVerdict({ productId = "", optionId = "", profileId = "" } = {}) {
+  const pid = (productId || "").toLowerCase();
+  const profId = (profileId || "").toLowerCase();
+
+  // Vikram + iPhone 16 Pro (March TDS Shock)
+  if (pid.includes("iphone") && (profId.includes("vikram") || profId.includes("prof_vikram"))) {
+    return JSON.parse(JSON.stringify(MOCK_DATA.verdicts.iphone_vikram));
+  }
+
+  // Amit + Gaming Laptop (Risky Scenario)
+  if (pid.includes("laptop") || pid.includes("rog")) {
+    return JSON.parse(JSON.stringify(MOCK_DATA.verdicts.laptop_amit));
+  }
+
+  // Rahul + iPhone 16 Pro (Stretch Scenario)
+  if (pid.includes("iphone")) {
+    return JSON.parse(JSON.stringify(MOCK_DATA.verdicts.iphone_rahul));
+  }
+
+  // Default: Rahul + Sony WH-1000XM5 (Comfortable Scenario with 30.74% Hidden EAR)
+  return JSON.parse(JSON.stringify(MOCK_DATA.verdicts.sony_rahul));
+}
+
+/**
+ * Provides static grounded explanation bullets in English, Hindi, and Kannada.
+ */
+export function getMockExplanation(verdict, language = "en") {
+  const ear = verdict?.true_cost?.effective_annual_rate ?? 30.74;
+  const markup = verdict?.true_cost?.hidden_markup ? Math.round(verdict.true_cost.hidden_markup) : 2235;
+  const runway = verdict?.impact?.runway_months_after ?? 3.7;
+
+  if (language === "hi") {
+    return {
+      bullets: [
+        `यह खरीदारी आपके मासिक बजट के अनुकूल है, लेकिन नो-कॉस्ट ईएमआई में ${ear}% का छुपा हुआ वार्षिक ब्याज (EAR) है।`,
+        `नकद छूट छोड़ने और प्रोसेसिंग शुल्क के कारण आपको ₹${markup.toLocaleString('en-IN')} का अतिरिक्त भुगतान करना पड़ रहा है।`,
+        `नकद भुगतान करने पर आपका आपातकालीन फंड सुरक्षित रहेगा (${runway} महीने का खर्च शेष)।`,
+        `वेतन में 20% की कटौती की स्थिति में भी आपका मासिक बजट सकारात्मक रहेगा।`
+      ],
+      source: "template"
+    };
+  }
+
+  if (language === "kn") {
+    return {
+      bullets: [
+        `ಈ ಖರೀದಿಯು ನಿಮ್ಮ ಮಾಸಿಕ ಬಜೆಟ್‌ಗೆ ಸರಿಹೊಂದುತ್ತದೆ, ಆದರೆ ನೋ-ಕಾಸ್ಟ್ ಇಎಂಐ ನಲ್ಲಿ ${ear}% ಗುಪ್ತ ಬಡ್ಡಿ ದರ (EAR) ಇದೆ.`,
+        `ಕ್ಯಾಶ್ ರಿಯಾಯಿತಿಯನ್ನು ತ್ಯಜಿಸುವುದರಿಂದ ನಿಮಗೆ ₹${markup.toLocaleString('en-IN')} ಹೆಚ್ಚುವರಿ ನಷ್ಟವಾಗುತ್ತದೆ.`,
+        `ಪೂರ್ಣ ನಗದು ಪಾವತಿಯು ನಿಮ್ಮ ತುರ್ತು ನಿಧಿಯನ್ನು ರಕ್ಷಿಸುತ್ತದೆ (${runway} ತಿಂಗಳ ವೆಚ್ಚ ಲಭ್ಯ).`,
+        `ವೇತನದಲ್ಲಿ 20% ಕಡಿತವಾದರೂ ನಿಮ್ಮ ಉಳಿತಾಯ ಸುರಕ್ಷಿತವಾಗಿರುತ್ತದೆ.`
+      ],
+      source: "template"
+    };
+  }
+
+  // Default English
+  return {
+    bullets: [
+      `Safe on your monthly cash flow, but the No-Cost EMI carries a hidden ${ear}% Effective Annual Rate (EAR).`,
+      `Forfeiting the instant cash discount and paying processing fees results in ₹${markup.toLocaleString('en-IN')} in hidden markups.`,
+      `Buying in cash preserves your emergency runway at ${runway} months of essential expenses.`,
+      `Tested against a 20% income reduction: your free cash remains positive without distress.`
+    ],
+    source: "template"
+  };
+}

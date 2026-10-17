@@ -204,7 +204,7 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
   - Radio change handler: Updates `aria-checked="true"` on selected option. Dispatches custom `pl-option-changed` event to trigger adapter observation.
 
 ### Sub-stage B.2: Manifest & Offline Mock Bridge (`extension/`)
-- [ ] **Task B.2.1: Manifest Declaration (`extension/manifest.json`)**  
+- [x] **Task B.2.1: Manifest Declaration (`extension/manifest.json`)**  
   Per [`ARCHITECTURE.md` §8.1](file:///home/shamblonaut/dev/clones/paylens/ARCHITECTURE.md#L241-L247):
   - Permissions: `["storage"]`.
   - Host permissions: `["http://localhost:8000/*", "https://*.run.app/*"]`.
@@ -212,7 +212,7 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
   - Web accessible resources: `["content/card.css"]`.
   - Options page: `"options/options.html"`.
   - Action popup: `"popup/popup.html"`.
-- [ ] **Task B.2.2: Extension Config & Golden Mock Fixtures (`extension/config.js`, `extension/mock_data.js`)**  
+- [x] **Task B.2.2: Extension Config & Golden Mock Fixtures (`extension/config.js`, `extension/mock_data.js`)**  
   - `extension/config.js`:
     ```javascript
     export const CONFIG = {
@@ -222,7 +222,7 @@ To enable **Backend Core/AI (Track A)** and **Extension/Storefront (Track B)** t
     };
     ```
   - `extension/mock_data.js`: Exports exact golden `Verdict` JSON objects from `scripts/compute_fixtures.py` for Rahul/Sony, Rahul/iPhone, Amit/Laptop, and Vikram/Shock. Enables instant extension testing with 0 backend dependencies!
-- [ ] **Task B.2.3: Background Service Worker (`extension/background/service_worker.js`)**  
+- [x] **Task B.2.3: Background Service Worker (`extension/background/service_worker.js`)**  
   - Initialize `paylens.installId` on install.
   - Implement message protocol:
     - If `CONFIG.MOCK_API === true`, return matching verdict from `mock_data.js` immediately.
