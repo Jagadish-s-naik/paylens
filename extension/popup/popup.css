@@ -1,0 +1,276 @@
+/**
+ * extension/popup/popup.css
+ * Styles for the Paylens Action Popup Inspection Widget.
+ * Sized at 360px for compact toolbar inspection.
+ */
+
+:root {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --slate-50: #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
+  --emerald-600: #059669;
+  --rose-600: #e11d48;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: 360px;
+  font-family: var(--font-sans);
+  background-color: #ffffff;
+  color: var(--slate-900);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Header */
+.popup-header {
+  background: linear-gradient(90deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-icon {
+  color: #38bdf8;
+}
+
+.brand-title {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.btn-icon-options {
+  background: transparent;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  color: #94a3b8;
+  transition: color 0.15s ease;
+}
+
+.btn-icon-options:hover {
+  color: #ffffff;
+}
+
+/* Popup Body */
+.popup-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-box {
+  background: var(--slate-50);
+  border: 1px solid var(--slate-200);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.box-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--slate-500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.saved-pulse {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--emerald-600);
+  animation: pulse 1s ease;
+}
+
+@keyframes pulse {
+  0% { opacity: 0; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Dropdown */
+.persona-dropdown {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 8px 10px;
+  border: 1.5px solid var(--slate-300);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--slate-800);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.persona-dropdown:focus {
+  outline: none;
+  border-color: var(--brand-600);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+/* Profile Snapshot */
+.snapshot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.stat-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--slate-500);
+  display: block;
+}
+
+.take-home-val {
+  font-size: 1.375rem;
+  font-weight: 800;
+  color: var(--slate-900);
+  letter-spacing: -0.02em;
+}
+
+.regime-badge {
+  background: #dbeafe;
+  color: var(--brand-700);
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.employer-text {
+  font-size: 0.75rem;
+  color: var(--slate-600);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Cushion Grid */
+.cushion-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.cushion-stat {
+  background: var(--slate-50);
+  border: 1px solid var(--slate-200);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-val {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--slate-900);
+  margin: 2px 0;
+}
+
+.stat-sub {
+  font-size: 0.625rem;
+  color: var(--slate-400);
+}
+
+/* EMIs List */
+.total-emi-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--slate-700);
+}
+
+.emis-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.emi-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--slate-600);
+  padding: 4px 6px;
+  background: #ffffff;
+  border: 1px solid var(--slate-200);
+  border-radius: 6px;
+}
+
+/* Last Verdict */
+.verdict-tier-pill {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.verdict-reason-preview {
+  font-size: 0.75rem;
+  color: var(--slate-700);
+  line-height: 1.35;
+}
+
+/* Footer CTA */
+.popup-footer {
+  margin-top: 4px;
+}
+
+.btn-open-options-page {
+  width: 100%;
+  background: var(--slate-900);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-open-options-page:hover {
+  background: var(--brand-600);
+}

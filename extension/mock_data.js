@@ -586,30 +586,256 @@ export function getDemoPersonas() {
 }
 
 /**
- * Resolves the golden pre-computed verdict from local memory.
+ * Resolves the golden pre-computed or dynamically computed verdict.
  * Used when CONFIG.MOCK_API is true.
  */
-export function resolveMockVerdict({ productId = "", optionId = "", profileId = "" } = {}) {
+export function resolveMockVerdict({ productId = "", optionId = "", profileId = "", profile = null, listing = null } = {}) {
   const pid = (productId || "").toLowerCase();
-  const profId = (profileId || "").toLowerCase();
+  const optId = (optionId || "").toLowerCase();
+  const profId = (profileId || profile?.profile_id || "").toLowerCase();
 
-  // Vikram + iPhone 16 Pro (March TDS Shock)
-  if (pid.includes("iphone") && (profId.includes("vikram") || profId.includes("prof_vikram"))) {
+  const isAmit = profId.includes("amit");
+  const isVikram = profId.includes("vikram");
+  const isRahul = profId.includes("rahul") || (!isAmit && !isVikram);
+
+  const isCash = optId.includes("cash") || optId === "cash_full";
+  const isSony = pid.includes("sony") || pid.includes("wh1000xm5");
+  const isIphone = pid.includes("iphone");
+  const isLaptop = pid.includes("laptop") || pid.includes("rog");
+
+  // =========================================================================
+  // 1. Canonical Golden Fixtures for Scenario Testing
+  // =========================================================================
+
+  // Scenario 1: Rahul + Sony WH-1000XM5 + No-Cost EMI (30.74% EAR Markup)
+  if (isSony && isRahul && !isCash) {
+    return JSON.parse(JSON.stringify(MOCK_DATA.verdicts.sony_rahul));
+  }
+
+  // Scenario 2: Vikram + iPhone 16 Pro + No-Cost EMI (March TDS Spike)
+  if (isIphone && isVikram && !isCash) {
     return JSON.parse(JSON.stringify(MOCK_DATA.verdicts.iphone_vikram));
   }
 
-  // Amit + Gaming Laptop (Risky Scenario)
-  if (pid.includes("laptop") || pid.includes("rog")) {
+  // Scenario 3: Amit + Gaming Laptop + EMI (Risky Debt, Cash Deficit)
+  if (isLaptop && isAmit && !isCash) {
     return JSON.parse(JSON.stringify(MOCK_DATA.verdicts.laptop_amit));
   }
 
-  // Rahul + iPhone 16 Pro (Stretch Scenario)
-  if (pid.includes("iphone")) {
+  // Scenario 2 (Rahul): Rahul + iPhone 16 Pro + No-Cost EMI (Budget Stretch)
+  if (isIphone && isRahul && !isCash) {
     return JSON.parse(JSON.stringify(MOCK_DATA.verdicts.iphone_rahul));
   }
 
-  // Default: Rahul + Sony WH-1000XM5 (Comfortable Scenario with 30.74% Hidden EAR)
-  return JSON.parse(JSON.stringify(MOCK_DATA.verdicts.sony_rahul));
+  // =========================================================================
+  // 2. Dynamic Evaluation for All Other Combinations (Amit, Vikram, Cash, Options)
+  // =========================================================================
+
+  // Resolve Profile Stats
+  const activeProfile = profile || (isAmit ? MOCK_DATA.profiles.amit : (isVikram ? MOCK_DATA.profiles.vikram : MOCK_DATA.profiles.rahul));
+  const takeHome = Number(activeProfile.in_hand_verified || activeProfile.gross_monthly || 75000);
+  const currentSavings = Number(activeProfile.current_savings || 0);
+  const existingEmi = Number(activeProfile.total_existing_emi_monthly || 0);
+  const essentials = Number(activeProfile.essentials_monthly || (takeHome * 0.35 + (activeProfile.rent_monthly || 18000)));
+
+  // Resolve Product Stats
+  let cashPrice = 27990.0;
+  let listPrice = 29990.0;
+  let cashDiscount = 2000.0;
+  let installment = 4998.33;
+  let tenure = 6;
+  let fee = 199.0;
+  let prodTitle = "Sony WH-1000XM5";
+
+  if (isIphone) {
+    prodTitle = "iPhone 16 Pro";
+    listPrice = 119900.0;
+    cashDiscount = 5000.0;
+    cashPrice = 114900.0;
+    installment = optId.includes("12") ? 10483.33 : 19983.33;
+    tenure = optId.includes("12") ? 12 : 6;
+    fee = 199.0;
+  } else if (isLaptop) {
+    prodTitle = "ASUS ROG Strix G16";
+    listPrice = 145000.0;
+    cashDiscount = 5000.0;
+    cashPrice = 140000.0;
+    installment = 13160.0;
+    tenure = 12;
+    fee = 999.0;
+  }
+
+  // Extract option specifics if provided in listing payload
+  if (listing && Array.isArray(listing.payment_options)) {
+    const optObj = listing.payment_options.find((o) => (o.option_id || "").toLowerCase() === optId);
+    if (optObj) {
+      if (optObj.monthly_installment) installment = Number(optObj.monthly_installment);
+      if (optObj.tenure_months) tenure = Number(optObj.tenure_months);
+      if (optObj.processing_fee !== undefined) fee = Number(optObj.processing_fee);
+    }
+  }
+
+  // 1. True Cost Calculation
+  const totalOutflow = isCash ? cashPrice : Math.round((installment * tenure + fee) * 100) / 100;
+  const hiddenMarkup = isCash ? 0.0 : Math.max(0, Math.round((totalOutflow - cashPrice) * 100) / 100);
+  const ear = isCash ? 0.0 : (optId.includes("nocost") ? (tenure <= 6 ? 30.74 : 16.63) : 27.44);
+  const hasHighApr = !isCash && ear >= 24.0;
+  const isZeroCost = isCash || hiddenMarkup <= 0;
+
+  // 2. Financial Impact Calculation
+  const foirBefore = Math.round((existingEmi / takeHome) * 10000) / 10000;
+  const foirAfter = Math.round(((existingEmi + (isCash ? 0 : installment)) / takeHome) * 10000) / 10000;
+
+  const freeCashBefore = Math.round((takeHome - essentials - existingEmi) * 100) / 100;
+  const freeCashAfter = Math.round((takeHome - essentials - existingEmi - (isCash ? 0 : installment)) * 100) / 100;
+  const freeCashRatioAfter = Math.round((freeCashAfter / takeHome) * 10000) / 10000;
+
+  const upfrontCost = isCash ? cashPrice : fee;
+  const savingsAfter = Math.round((currentSavings - upfrontCost) * 100) / 100;
+  const runwayBefore = essentials > 0 ? Math.round((currentSavings / essentials) * 100) / 100 : 3.0;
+  const runwayAfter = essentials > 0 ? Math.round((Math.max(0, savingsAfter) / essentials) * 100) / 100 : 0.0;
+
+  // 3. Dynamic Tier & Gating Logic
+  let verdictLevel = "COMFORTABLE";
+  let badge = "🟢 Safe to Buy";
+  let headlineReason = "";
+  let score = 88;
+
+  // Case A: Cash payment but insufficient liquid savings
+  if (isCash && currentSavings < cashPrice) {
+    verdictLevel = "RISKY";
+    badge = "🔴 Infeasible Cash";
+    score = 22;
+    headlineReason = `Not possible today: upfront price (₹${cashPrice.toLocaleString('en-IN')}) exceeds total liquid savings (₹${currentSavings.toLocaleString('en-IN')}).`;
+  }
+  // Case B: Cash payment leaves dangerous runway (< 1.5 months)
+  else if (isCash && runwayAfter < 1.5) {
+    verdictLevel = "STRETCH";
+    badge = "🟡 Cushion Depletion";
+    score = 52;
+    headlineReason = `Full cash payment severely depletes emergency runway from ${runwayBefore.toFixed(1)}m down to ${runwayAfter.toFixed(1)}m.`;
+  }
+  // Case C: Cash payment safe and saves all hidden fees
+  else if (isCash) {
+    verdictLevel = "COMFORTABLE";
+    badge = "🟢 Safe in Cash";
+    score = 96;
+    headlineReason = `Safe cash purchase: saves ₹${Math.round(cashDiscount).toLocaleString('en-IN')} instant discount while preserving a healthy ${runwayAfter.toFixed(1)}m emergency runway.`;
+  }
+  // Case D: Overleveraged EMI or negative free cash (Amit on iPhone or ROG)
+  else if (freeCashAfter < 0 || foirAfter > 0.45 || runwayAfter < 1.0) {
+    verdictLevel = (freeCashAfter < -3000 || foirAfter > 0.50) ? "DANGEROUS" : "RISKY";
+    badge = verdictLevel === "DANGEROUS" ? "🔴 Dangerous Debt" : "🔴 Risky Debt";
+    score = verdictLevel === "DANGEROUS" ? 18 : 34;
+    headlineReason = freeCashAfter < 0
+      ? `Risky: triggers an immediate monthly cash-flow deficit of ₹${Math.abs(Math.round(freeCashAfter)).toLocaleString('en-IN')}/month.`
+      : `High debt load: committed loans consume ${(foirAfter * 100).toFixed(1)}% of your salary with low ${runwayAfter.toFixed(1)}m runway.`;
+  }
+  // Case E: Moderate stretch (FOIR > 20% or free cash ratio < 20%)
+  else if (foirAfter > 0.20 || freeCashRatioAfter < 0.20 || runwayAfter < 2.5) {
+    verdictLevel = "STRETCH";
+    badge = "🟡 Budget Stretch";
+    score = 64;
+    headlineReason = `Budget stretch: consumes ${(foirAfter * 100).toFixed(1)}% of your salary and shrinks monthly uncommitted cash to ₹${Math.round(freeCashAfter).toLocaleString('en-IN')}.`;
+  }
+  // Case F: Fully comfortable (Vikram on Sony)
+  else {
+    verdictLevel = "COMFORTABLE";
+    badge = "🟢 Safe to Buy";
+    score = 88;
+    headlineReason = `Budget-safe (${(foirAfter * 100).toFixed(1)}% FOIR), but financing costs ${ear}% EAR markup (₹${Math.round(hiddenMarkup).toLocaleString('en-IN')} lost).`;
+  }
+
+  return {
+    verdict_level: verdictLevel,
+    tier: verdictLevel,
+    badge: badge,
+    affordability_score: score,
+    headline_reason: headlineReason,
+    selected_option: {
+      option_id: optId || (isCash ? "cash_full" : "emi_option"),
+      type: isCash ? "CASH" : (optId.includes("nocost") ? "NO_COST_EMI" : "STANDARD_EMI"),
+      label: isCash ? "Full Payment" : (optId.includes("nocost") ? `No-Cost EMI (${tenure} Months)` : `Standard EMI (${tenure} Months)`),
+      tenure_months: tenure,
+      monthly_installment: isCash ? cashPrice : installment,
+      upfront_downpayment: isCash ? cashPrice : 0.0,
+      processing_fee: isCash ? 0.0 : fee,
+      lost_cash_discount: isCash ? 0.0 : cashDiscount,
+      stated_interest_rate: isCash ? 0.0 : (optId.includes("std") ? 15.0 : 0.0)
+    },
+    true_cost: {
+      effective_annual_rate: ear,
+      nominal_annual_rate: isCash ? 0.0 : Math.round(ear * 0.88 * 100) / 100,
+      total_outflow: totalOutflow,
+      hidden_markup: hiddenMarkup,
+      is_truly_zero_cost: isZeroCost,
+      has_high_apr_alert: hasHighApr
+    },
+    impact: {
+      foir_before: foirBefore,
+      foir_after: foirAfter,
+      free_cash_before: freeCashBefore,
+      free_cash_after: freeCashAfter,
+      free_cash_ratio_after: freeCashRatioAfter,
+      runway_months_before: runwayBefore,
+      runway_months_after: runwayAfter
+    },
+    stress_tests: [
+      {
+        scenario_name: "Income Shock (-20% Salary Cut)",
+        description: "Simulates unexpected loss of pay or salary slowdown.",
+        stressed_foir: Math.round(((existingEmi + (isCash ? 0 : installment)) / (takeHome * 0.8)) * 10000) / 10000,
+        stressed_free_cash: Math.round((takeHome * 0.8 - essentials - existingEmi - (isCash ? 0 : installment)) * 100) / 100,
+        passes: (takeHome * 0.8 - essentials - existingEmi - (isCash ? 0 : installment)) >= 0,
+        is_applicable: true,
+        warning: (takeHome * 0.8 - essentials - existingEmi - (isCash ? 0 : installment)) < 0
+          ? "A 20% salary cut triggers an immediate monthly deficit."
+          : null
+      },
+      {
+        scenario_name: "March TDS Shock (Tax Deduction Jump)",
+        description: activeProfile.tax_regime === "OLD"
+          ? "Simulates missing investment proof deadlines under OLD regime."
+          : "Under NEW regime, statutory tax requires zero investment proofs (₹0 March shock).",
+        stressed_foir: foirAfter,
+        stressed_free_cash: activeProfile.tax_regime === "OLD" ? freeCashAfter - 50000 : freeCashAfter,
+        passes: activeProfile.tax_regime !== "OLD" || isCash,
+        is_applicable: activeProfile.tax_regime === "OLD",
+        warning: activeProfile.tax_regime === "OLD"
+          ? "Unsubmitted 80C/HRA proofs trigger a sharp March tax deduction spike."
+          : null
+      }
+    ],
+    alternatives: [
+      {
+        strategy: "BUY_CASH",
+        title: "Buy in Cash Today (Full Payment)",
+        description: currentSavings >= cashPrice
+          ? `Pay ₹${cashPrice.toLocaleString('en-IN')} upfront. Post-purchase runway is ${((currentSavings - cashPrice) / essentials).toFixed(1)} months.`
+          : `Not possible today: upfront price (₹${cashPrice.toLocaleString('en-IN')}) exceeds total savings (₹${currentSavings.toLocaleString('en-IN')}).`,
+        suggested_monthly_emi: 0.0,
+        suggested_tenure_months: 1,
+        rescore_verdict: currentSavings >= cashPrice ? "COMFORTABLE" : "RISKY",
+        rescore_badge: currentSavings >= cashPrice ? "🟢 Safe to Buy" : "🔴 Not Feasible",
+        runway_after: essentials > 0 ? Math.max(0, Math.round(((currentSavings - cashPrice) / essentials) * 100) / 100) : 0,
+        money_saved: hiddenMarkup,
+        is_feasible: currentSavings >= cashPrice
+      },
+      {
+        strategy: "WAIT_AND_SAVE",
+        title: freeCashBefore > 0 ? `Wait ${Math.max(1, Math.ceil((cashPrice - Math.max(0, currentSavings - (essentials * 3))) / freeCashBefore))} Months & Buy in Cash` : "Build Emergency Cushion First",
+        description: `Save uncommitted cash to buy in cash, saving ₹${Math.round(hiddenMarkup).toLocaleString('en-IN')} without borrowing.`,
+        suggested_monthly_emi: 0.0,
+        suggested_tenure_months: 2,
+        rescore_verdict: "COMFORTABLE",
+        rescore_badge: "🟢 Safe Goal",
+        runway_after: 3.0,
+        money_saved: hiddenMarkup,
+        is_feasible: true
+      }
+    ],
+    explanation_bullets: null
+  };
 }
 
 /**

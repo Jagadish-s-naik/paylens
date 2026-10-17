@@ -4,11 +4,102 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Paylens Copilot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div id="popup-root">
-    <h3>Paylens Copilot</h3>
-    <p>Financial Status & Persona Switcher</p>
-  </div>
+
+  <!-- Brand Header -->
+  <header class="popup-header">
+    <div class="brand">
+      <svg class="brand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      <span class="brand-title">Paylens Copilot</span>
+    </div>
+    <button class="btn-icon-options" id="btn-quick-options" title="Open Full Onboarding / Options" type="button">
+      ⚙️
+    </button>
+  </header>
+
+  <main class="popup-body">
+
+    <!-- Persona Switcher -->
+    <div class="section-box persona-switch-box">
+      <div class="box-header">
+        <span class="box-label">Active Persona</span>
+        <span id="saved-pulse" class="saved-pulse" hidden>✓ Saved</span>
+      </div>
+      <select id="persona-select" class="persona-dropdown">
+        <option value="rahul">Rahul Sharma (12 LPA Fresher)</option>
+        <option value="amit">Amit Verma (Junior Dev - Overleveraged)</option>
+        <option value="vikram">Vikram Malhotra (Senior Dev - Old Regime)</option>
+      </select>
+    </div>
+
+    <!-- Active Profile Snapshot -->
+    <div class="section-box profile-snapshot-box">
+      <div class="snapshot-header">
+        <div>
+          <span class="stat-label">Verified Net Take-Home</span>
+          <div class="take-home-val" id="profile-take-home">₹75,000.00</div>
+        </div>
+        <span class="regime-badge" id="profile-regime">NEW REGIME</span>
+      </div>
+      <p class="employer-text" id="profile-employer">Acme Cloud Tech India Pvt Ltd</p>
+    </div>
+
+    <!-- 2-Stat Cushion Grid -->
+    <div class="cushion-grid">
+      <div class="cushion-stat">
+        <span class="stat-label">Free Cash Buffer</span>
+        <span class="stat-val" id="stat-free-cash">₹31,000.00</span>
+        <span class="stat-sub">Monthly uncommitted</span>
+      </div>
+      <div class="cushion-stat">
+        <span class="stat-label">Emergency Runway</span>
+        <span class="stat-val" id="stat-runway">3.70 months</span>
+        <span class="stat-sub">Living expenses</span>
+      </div>
+    </div>
+
+    <!-- Committed EMIs Section -->
+    <div class="section-box emis-box">
+      <div class="box-header">
+        <span class="box-label">Committed Monthly Debt</span>
+        <span class="total-emi-label" id="total-emi-label">₹3,500.00/mo</span>
+      </div>
+      <ul class="emis-list" id="emis-list">
+        <li class="emi-item">
+          <span>Previous Phone</span>
+          <strong>₹3,500/mo (3m left)</strong>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Last Evaluated Verdict Preview (If Available) -->
+    <div class="section-box last-verdict-box" id="last-verdict-container" hidden>
+      <div class="box-header">
+        <span class="box-label">Last Evaluation</span>
+        <span class="verdict-tier-pill" id="verdict-tier-pill">🟢 COMFORTABLE</span>
+      </div>
+      <div class="verdict-product-title" id="verdict-product-title" style="font-size: 0.6875rem; font-weight: 700; color: #2563eb; margin: 2px 0 4px 0;">Product</div>
+      <p class="verdict-reason-preview" id="verdict-reason-preview">
+        Budget-safe (11.3% FOIR), but financing costs 30.74% EAR markup.
+      </p>
+    </div>
+
+    <!-- Actions Footer -->
+    <footer class="popup-footer">
+      <button class="btn-open-options-page" id="btn-open-options" type="button">
+        Open Profile Builder & Payslips →
+      </button>
+    </footer>
+
+  </main>
+
+  <script type="module" src="popup.js"></script>
 </body>
 </html>

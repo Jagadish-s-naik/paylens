@@ -1,10 +1,655 @@
 /**
- * Paylens Shadow DOM Verdict Card Stylesheet
- * Scoped inside the open Shadow Root to prevent host style bleeding.
+ * extension/content/card.css
+ * Scoped styles for the Paylens Open Shadow DOM Verdict Card.
+ * Adheres strictly to ARCHITECTURE.md §8.6.
  */
 
 :host {
   display: block;
+  all: initial;
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  margin: 16px 0;
+  color: #0f172a;
+  box-sizing: border-box;
+  margin: 18px 0;
+  width: 100%;
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
+  margin: 0;
+  padding: 0;
+}
+
+/* ============================================================================
+   Main Card Container (Glassmorphic Surface)
+   ============================================================================ */
+.paylens-card {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.paylens-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.06);
+}
+
+/* Brand Top Banner */
+.card-header-brand {
+  background: linear-gradient(90deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-icon-svg {
+  width: 18px;
+  height: 18px;
+  color: #38bdf8;
+}
+
+.brand-title {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+.brand-pill {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.brand-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-icon-link {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.15s ease;
+}
+
+.btn-icon-link:hover {
+  color: #ffffff;
+}
+
+/* Card Body */
+.card-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ============================================================================
+   1. Badge & Headline Reason (Section 1)
+   ============================================================================ */
+.verdict-header-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.verdict-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.verdict-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.badge-comfortable {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.badge-stretch {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.badge-risky {
+  background: #fff1f2;
+  color: #9f1239;
+  border: 1px solid #fecdd3;
+}
+
+.headline-reason-text {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.4;
+}
+
+/* ============================================================================
+   2. True Cost Box & High APR Alert Banner (Section 2)
+   ============================================================================ */
+.true-cost-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rates-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.rate-stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.rate-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rate-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.rate-value.highlight-red {
+  color: #e11d48;
+}
+
+.outflow-comparison {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8125rem;
+  padding-top: 8px;
+  border-top: 1px solid #e2e8f0;
+  color: #475569;
+}
+
+.markup-amount {
+  font-weight: 700;
+  color: #e11d48;
+}
+
+/* Crimson High APR Alert Banner */
+.high-apr-alert {
+  background: #fef2f2;
+  border: 1.5px solid #f87171;
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  animation: pulseGlow 2.5s infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.2); }
+  50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+
+.alert-icon {
+  font-size: 1.125rem;
+  flex-shrink: 0;
+}
+
+.alert-content h4 {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: #991b1b;
+  margin-bottom: 2px;
+}
+
+.alert-content p {
+  font-size: 0.75rem;
+  color: #b91c1c;
+  line-height: 1.35;
+}
+
+/* ============================================================================
+   3. Impact Grid (Section 3)
+   ============================================================================ */
+.impact-grid-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section-label-sm {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.impact-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.impact-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.impact-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.impact-value {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.impact-sub {
+  font-size: 0.6875rem;
+  color: #64748b;
+}
+
+.impact-sub.danger {
+  color: #e11d48;
+  font-weight: 700;
+}
+
+/* ============================================================================
+   4. Stress Test Rows (Section 4)
+   ============================================================================ */
+.stress-tests-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stress-row {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stress-row.failed {
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+
+.stress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stress-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stress-status-pill {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.stress-status-pill.pass {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.stress-status-pill.fail {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
+.stress-warning-msg {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #be123c;
+  line-height: 1.35;
+}
+
+/* ============================================================================
+   5. Smart Alternatives (Section 5)
+   ============================================================================ */
+.alternatives-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.alt-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.15s ease;
+}
+
+.alt-card:hover {
+  border-color: #cbd5e1;
+}
+
+.alt-card.infeasible {
+  opacity: 0.65;
+  background: #f1f5f9;
+}
+
+.alt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.alt-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.alt-badge-pill {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.alt-desc {
+  font-size: 0.75rem;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.alt-savings-tag {
+  align-self: flex-start;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #047857;
+  background: #d1fae5;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* ============================================================================
+   6. Regional Explanations & Language Switcher
+   ============================================================================ */
+.explanations-section {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lang-switch-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.lang-switch-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.lang-pills {
+  display: flex;
+  gap: 4px;
+}
+
+.lang-pill {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #475569;
+  transition: all 0.15s ease;
+}
+
+.lang-pill:hover {
+  background: #f1f5f9;
+}
+
+.lang-pill.active {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+.bullets-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bullet-item {
+  font-size: 0.75rem;
+  color: #334155;
+  line-height: 1.4;
+  display: flex;
+  gap: 6px;
+}
+
+.bullet-item::before {
+  content: '•';
+  color: #2563eb;
+  font-weight: bold;
+}
+
+/* ============================================================================
+   7. Assumptions Footer (Collapsible)
+   ============================================================================ */
+.assumptions-footer {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 10px;
+}
+
+.assumptions-toggle {
+  background: transparent;
+  border: none;
+  font-size: 0.6875rem;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.assumptions-toggle:hover {
+  color: #0f172a;
+}
+
+.assumptions-content {
+  margin-top: 8px;
+  font-size: 0.6875rem;
+  color: #64748b;
+  line-height: 1.5;
+  background: #f8fafc;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+/* ============================================================================
+   Card States: Loading, No-Profile, Error
+   ============================================================================ */
+
+/* Loading Shimmer State */
+.state-loading {
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.shimmer-bar {
+  height: 16px;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+.shimmer-badge { width: 140px; height: 28px; border-radius: 9999px; }
+.shimmer-headline { width: 90%; height: 20px; }
+.shimmer-box { width: 100%; height: 90px; border-radius: 10px; }
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* No-Profile State */
+.state-no-profile {
+  padding: 28px 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.no-profile-icon {
+  font-size: 2rem;
+  margin-bottom: -4px;
+}
+
+.no-profile-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.no-profile-desc {
+  font-size: 0.8125rem;
+  color: #64748b;
+  max-width: 320px;
+  line-height: 1.4;
+}
+
+.no-profile-btn {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.no-profile-btn:hover {
+  background: #1d4ed8;
+}
+
+/* Error State */
+.state-error {
+  padding: 24px 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.error-title {
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: #be123c;
+}
+
+.error-desc {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.retry-btn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #1e293b;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.retry-btn:hover {
+  background: #f8fafc;
 }

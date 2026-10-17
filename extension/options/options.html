@@ -3,12 +3,279 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Paylens Onboarding & Profile Builder</title>
+  <title>Paylens — Verified Profile Onboarding & Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="options.css">
 </head>
 <body>
-  <div id="options-root">
-    <h1>Paylens Profile Onboarding</h1>
-    <p>Upload payslip or prefill demo persona.</p>
-  </div>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <svg class="brand-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        <span class="brand-title">Paylens Copilot</span>
+        <span class="brand-badge">Truth Layer</span>
+      </div>
+      <div class="header-status">
+        <span id="active-profile-indicator" class="status-pill status-ready">● Ready</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+
+    <!-- 1-Click Demo Personas Strip -->
+    <section class="card demo-personas-card">
+      <div class="card-header">
+        <span class="badge-accent">Fast Evaluation</span>
+        <h2>1-Click Demo Personas</h2>
+        <p class="subtitle">Instantly pre-fill verified personas to test all affordability scenarios:</p>
+      </div>
+      <div class="personas-grid" id="personas-container">
+        <button class="persona-btn" type="button" data-persona="rahul">
+          <span class="persona-icon">🚀</span>
+          <div class="persona-info">
+            <span class="persona-name">Rahul Sharma</span>
+            <span class="persona-role">12 LPA Fresher • New Regime</span>
+            <span class="persona-metrics">Take-home: ₹75,000 • Savings: ₹1.5L</span>
+          </div>
+          <span class="persona-arrow">→</span>
+        </button>
+
+        <button class="persona-btn" type="button" data-persona="amit">
+          <span class="persona-icon">🚲</span>
+          <div class="persona-info">
+            <span class="persona-name">Amit Verma</span>
+            <span class="persona-role">Junior Dev • Overleveraged</span>
+            <span class="persona-metrics">Take-home: ₹46,800 • Savings: ₹25k</span>
+          </div>
+          <span class="persona-arrow">→</span>
+        </button>
+
+        <button class="persona-btn" type="button" data-persona="vikram">
+          <span class="persona-icon">🏢</span>
+          <div class="persona-info">
+            <span class="persona-name">Vikram Malhotra</span>
+            <span class="persona-role">Senior Dev • Old Regime TDS Shock</span>
+            <span class="persona-metrics">Take-home: ₹88,000 • Savings: ₹2.0L</span>
+          </div>
+          <span class="persona-arrow">→</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Payslip Upload & Extraction Section -->
+    <section class="card upload-card">
+      <div class="card-header">
+        <span class="badge-accent">Document Verification</span>
+        <h2>Upload Salary Payslip</h2>
+        <p class="subtitle">Upload monthly PDF or photo. OCR extracts verifiable numbers with zero disk persistence.</p>
+      </div>
+
+      <div class="dropzone" id="payslip-dropzone">
+        <input type="file" id="file-input" accept=".pdf,image/png,image/jpeg" hidden>
+        <div class="dropzone-inner">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="12" y1="18" x2="12" y2="12"></line>
+            <polyline points="9 15 12 12 15 15"></polyline>
+          </svg>
+          <div class="dropzone-text">
+            <strong>Drag and drop your payslip here</strong>, or <span class="link-browse">browse file</span>
+          </div>
+          <span class="dropzone-hint">Supports PDF, PNG, JPG up to 5MB</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Profile Form & Sanity Review -->
+    <form id="profile-form">
+      <div class="form-grid">
+
+        <!-- Column 1: Salary Breakdown & Validation -->
+        <section class="card form-col">
+          <div class="card-header">
+            <h3>1. Salary Earnings & Deductions</h3>
+            <p class="subtitle">Itemized verification against payslip line items:</p>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="employer-name">Employer Name</label>
+              <input type="text" id="employer-name" value="Acme Cloud Tech India Pvt Ltd" required>
+            </div>
+            <div class="form-group">
+              <label for="pay-period">Pay Period</label>
+              <input type="text" id="pay-period" value="March 2026" required>
+            </div>
+          </div>
+
+          <h4 class="sub-heading">Earnings (INR Monthly)</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="basic-monthly">Basic Salary</label>
+              <input type="number" id="basic-monthly" step="0.01" value="40000" required>
+            </div>
+            <div class="form-group">
+              <label for="hra-monthly">House Rent Allowance (HRA)</label>
+              <input type="number" id="hra-monthly" step="0.01" value="20000" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="gross-monthly">Gross Monthly Salary</label>
+              <input type="number" id="gross-monthly" step="0.01" value="80000" required>
+            </div>
+            <div class="form-group">
+              <label for="bonus-annual">Annual Variable Bonus</label>
+              <input type="number" id="bonus-annual" step="0.01" value="182400">
+            </div>
+          </div>
+
+          <h4 class="sub-heading">Deductions (INR Monthly)</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="pf-employee">Employee PF</label>
+              <input type="number" id="pf-employee" step="0.01" value="4800" required>
+            </div>
+            <div class="form-group">
+              <label for="pt-monthly">Professional Tax (PT)</label>
+              <input type="number" id="pt-monthly" step="0.01" value="200" required>
+            </div>
+            <div class="form-group">
+              <label for="tds-monthly">Monthly TDS</label>
+              <input type="number" id="tds-monthly" step="0.01" value="0" required>
+            </div>
+          </div>
+
+          <!-- Verified In-Hand Highlight -->
+          <div class="highlight-in-hand-box">
+            <div class="in-hand-header">
+              <span>Verified Net Take-Home</span>
+              <strong id="in-hand-display">₹75,000.00</strong>
+            </div>
+            <p class="in-hand-note">Derived from Gross (₹80,000) minus statutory deductions (₹5,000).</p>
+          </div>
+
+          <!-- G1-G3 Validation Banner -->
+          <div class="validation-banner" id="validation-banner">
+            <div class="val-header">
+              <span class="val-title">Sanity Verification Gates (G1–G3)</span>
+              <span class="val-score" id="val-score">100 / 100 Health</span>
+            </div>
+            <div class="val-gates-list" id="val-gates-list">
+              <div class="val-gate-item pass" id="gate-g1">✓ G1: Basic + HRA + Allowances matches Gross (₹80,000)</div>
+              <div class="val-gate-item pass" id="gate-g2">✓ G2: Gross minus deductions matches Net Pay (₹75,000)</div>
+              <div class="val-gate-item pass" id="gate-g3">✓ G3: Net pay is positive and within gross boundary</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Column 2: Financial Context & EMIs -->
+        <section class="card form-col">
+          <div class="card-header">
+            <h3>2. Living Expenses & Existing Debt</h3>
+            <p class="subtitle">Contextual obligations used to establish emergency cushion:</p>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="tax-regime">Tax Regime</label>
+              <select id="tax-regime">
+                <option value="NEW" selected>New Tax Regime (Section 115BAC)</option>
+                <option value="OLD">Old Tax Regime (With 80C / HRA Proofs)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="metro-city">City Cost Type</label>
+              <select id="metro-city">
+                <option value="true" selected>Metro City (50% HRA Factor)</option>
+                <option value="false">Non-Metro (40% HRA Factor)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="monthly-rent">Monthly Rent Obligation</label>
+              <input type="number" id="monthly-rent" step="0.01" value="18000" required>
+            </div>
+            <div class="form-group">
+              <label for="current-savings">Liquid Bank Savings</label>
+              <input type="number" id="current-savings" step="0.01" value="150000" required>
+            </div>
+          </div>
+
+          <!-- Active EMIs Section -->
+          <div class="emis-section">
+            <div class="emis-header">
+              <label>Committed Monthly EMIs</label>
+              <button class="btn-add-emi" type="button" id="btn-add-emi">+ Add EMI Row</button>
+            </div>
+            <table class="emis-table">
+              <thead>
+                <tr>
+                  <th>Debt Name</th>
+                  <th>Monthly Amount (₹)</th>
+                  <th>Tenure Remaining (Months)</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="emis-tbody">
+                <tr>
+                  <td><input type="text" class="emi-name" value="Previous Phone" placeholder="e.g. Phone EMI"></td>
+                  <td><input type="number" class="emi-amount" value="3500" step="0.01" placeholder="3500"></td>
+                  <td><input type="number" class="emi-tenure" value="3" placeholder="3"></td>
+                  <td><button type="button" class="btn-remove-row" title="Remove row">✕</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Real-time Derived Capacity Summary Card -->
+          <div class="capacity-preview-box">
+            <h4>Live Financial Capacity Profile</h4>
+            <div class="capacity-metrics-grid">
+              <div class="cap-stat">
+                <span class="cap-label">Monthly Essentials (Rent + 30%)</span>
+                <span class="cap-val" id="cap-essentials">₹40,500.00</span>
+              </div>
+              <div class="cap-stat">
+                <span class="cap-label">Free Cash Buffer</span>
+                <span class="cap-val" id="cap-free-cash">₹31,000.00</span>
+              </div>
+              <div class="cap-stat">
+                <span class="cap-label">Emergency Runway</span>
+                <span class="cap-val" id="cap-runway">3.70 months</span>
+              </div>
+              <div class="cap-stat">
+                <span class="cap-label">Safe New EMI Ceiling (35%)</span>
+                <span class="cap-val" id="cap-ceiling">₹22,750.00</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Action Footer -->
+      <footer class="form-actions-footer">
+        <button class="btn-primary-save" type="submit" id="btn-save-profile">
+          ✓ Save & Activate Profile
+        </button>
+      </footer>
+    </form>
+
+  </main>
+
+  <script type="module" src="options.js"></script>
 </body>
 </html>

@@ -189,7 +189,9 @@ async function handleAfford(payload) {
     const verdict = resolveMockVerdict({
       productId: payload.listing.product_id,
       optionId: payload.selectedOptionId,
-      profileId: profile.profile_id
+      profileId: profile.profile_id,
+      profile: profile,
+      listing: payload.listing
     });
 
     // Cache verdict for popup display

@@ -3,6 +3,7 @@
 *.env
 *.json
 !samples/*.json
+!extension/manifest.json
 
 # Virtual Environment
 .venv/
