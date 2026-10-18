@@ -214,14 +214,21 @@ export const GenericAdapter = {
 
   observe(doc, onChange) {
     if (!doc || typeof onChange !== 'function') return () => {};
-    const observer = new MutationObserver(() => {
+    let observer = null;
+    observer = new MutationObserver(() => {
+      if (typeof chrome === 'undefined' || !chrome.runtime?.id) {
+        if (observer) observer.disconnect();
+        return;
+      }
       const listing = GenericAdapter.extract(doc);
       if (listing) {
         onChange({ productId: listing.product_id, optionId: 'nocost_6m' });
       }
     });
     observer.observe(doc.body || doc.documentElement, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    return () => {
+      if (observer) observer.disconnect();
+    };
   }
 };
 

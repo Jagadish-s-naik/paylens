@@ -641,11 +641,16 @@ export const FlipkartAdapter = {
 
     let debounceTimer = null;
     let lastStateKey = '';
+    let observer = null;
 
     const notify = () => {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(async () => {
         try {
+          if (typeof chrome === 'undefined' || !chrome.runtime?.id) {
+            if (observer) observer.disconnect();
+            return;
+          }
           const listing = await Promise.resolve(FlipkartAdapter.extract(doc));
           const stateKey = listing ? `${listing.product_id}_${listing.upfront_cash_price}_${listing.cash_discount}` : '';
           if (stateKey && stateKey !== lastStateKey) {
@@ -656,7 +661,14 @@ export const FlipkartAdapter = {
       }, 250);
     };
 
-    const observer = new MutationObserver(() => notify());
+    observer = new MutationObserver(() => {
+      if (typeof chrome === 'undefined' || !chrome.runtime?.id) {
+        if (observer) observer.disconnect();
+        return;
+      }
+      notify();
+    });
+
     const target = doc.querySelector('div.col-8-12') || doc.body;
     if (target) {
       observer.observe(target, { childList: true, subtree: true });
@@ -664,7 +676,7 @@ export const FlipkartAdapter = {
 
     return () => {
       clearTimeout(debounceTimer);
-      observer.disconnect();
+      if (observer) observer.disconnect();
     };
   }
 };

@@ -182,10 +182,15 @@ export const MockShopAdapter = {
     let debounceTimer = null;
     let lastSignature = null;
 
+    let observer = null;
     const notify = () => {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         try {
+          if (typeof chrome === 'undefined' || !chrome.runtime?.id) {
+            if (observer) observer.disconnect();
+            return;
+          }
           const productEl = getActiveProductElement(doc);
           const productId = productEl?.dataset?.plId || '';
           const optionId = MockShopAdapter.selectedOptionId(doc) || '';
@@ -197,7 +202,9 @@ export const MockShopAdapter = {
             onChange({ productId, optionId });
           }
         } catch (err) {
-          console.warn('[Paylens MockShopAdapter] Observer error in callback:', err);
+          if (chrome.runtime?.id) {
+            console.warn('[Paylens MockShopAdapter] Observer error in callback:', err);
+          }
         }
       }, 150); // 150ms debounce per ARCHITECTURE.md §8.4
     };
@@ -216,7 +223,11 @@ export const MockShopAdapter = {
     doc.addEventListener('pl-product-viewed', handleProductViewed);
 
     // 2. DOM MutationObserver (watches attribute changes on options and PDP visibility)
-    const observer = new MutationObserver((mutations) => {
+    observer = new MutationObserver((mutations) => {
+      if (typeof chrome === 'undefined' || !chrome.runtime?.id) {
+        if (observer) observer.disconnect();
+        return;
+      }
       let shouldNotify = false;
       for (const m of mutations) {
         if (m.type === 'attributes') {

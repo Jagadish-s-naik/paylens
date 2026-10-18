@@ -609,11 +609,16 @@ export const AmazonAdapter = {
 
     let debounceTimer = null;
     let lastStateKey = '';
+    let observer = null;
 
     const notify = () => {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(async () => {
         try {
+          if (typeof chrome === 'undefined' || !chrome.runtime?.id) {
+            if (observer) observer.disconnect();
+            return;
+          }
           const listing = await Promise.resolve(AmazonAdapter.extract(doc));
           const stateKey = listing ? `${listing.product_id}_${listing.upfront_cash_price}_${listing.cash_discount}` : '';
           if (stateKey && stateKey !== lastStateKey) {
@@ -624,7 +629,14 @@ export const AmazonAdapter = {
       }, 250);
     };
 
-    const observer = new MutationObserver(() => notify());
+    observer = new MutationObserver(() => {
+      if (typeof chrome === 'undefined' || !chrome.runtime?.id) {
+        if (observer) observer.disconnect();
+        return;
+      }
+      notify();
+    });
+
     const target = doc.querySelector('#centerCol') || doc.body;
     if (target) {
       observer.observe(target, { childList: true, subtree: true });
@@ -632,7 +644,7 @@ export const AmazonAdapter = {
 
     return () => {
       clearTimeout(debounceTimer);
-      observer.disconnect();
+      if (observer) observer.disconnect();
     };
   }
 };
