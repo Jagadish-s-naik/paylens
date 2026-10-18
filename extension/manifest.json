@@ -5,7 +5,8 @@
   "description": "Calculates real take-home affordability, reveals hidden APR markups on No-Cost EMIs, and protects emergency cushions at checkout.",
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "scripting"
   ],
   "host_permissions": [
     "http://localhost:8000/*",

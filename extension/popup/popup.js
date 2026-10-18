@@ -443,25 +443,49 @@ function bindEvents() {
     btnRelaunch.addEventListener('click', async () => {
       try {
         const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (activeTab?.id) {
-          btnRelaunch.disabled = true;
-          await chrome.tabs.sendMessage(activeTab.id, { type: 'RELAUNCH_COPILOT' });
-          if (relaunchStatus) {
-            relaunchStatus.hidden = false;
-            relaunchStatus.textContent = '✓ Copilot Relaunched on Page!';
-            setTimeout(() => {
-              if (relaunchStatus) relaunchStatus.hidden = true;
-            }, 3000);
+        if (!activeTab?.id) return;
+
+        btnRelaunch.disabled = true;
+
+        let sent = false;
+        try {
+          const res = await chrome.tabs.sendMessage(activeTab.id, { type: 'RELAUNCH_COPILOT' });
+          if (res?.ok) sent = true;
+        } catch (_) {
+          // Tab may have been open prior to extension reload. Try auto-injecting via scripting API
+          if (chrome.scripting?.executeScript && activeTab.url && (activeTab.url.startsWith('http://') || activeTab.url.startsWith('https://') || activeTab.url.startsWith('file://'))) {
+            try {
+              await chrome.scripting.executeScript({
+                target: { tabId: activeTab.id },
+                files: ['content/content_loader.js']
+              });
+              await new Promise(r => setTimeout(r, 200));
+              const retryRes = await chrome.tabs.sendMessage(activeTab.id, { type: 'RELAUNCH_COPILOT' });
+              if (retryRes?.ok) sent = true;
+            } catch (_) {
+              // Gracefully handle restricted origin
+            }
           }
         }
-      } catch (err) {
-        console.warn('[Paylens Popup] Failed to relaunch copilot on page:', err);
+
         if (relaunchStatus) {
           relaunchStatus.hidden = false;
-          relaunchStatus.textContent = 'Notice: Refresh store page if not responding.';
+          if (sent) {
+            relaunchStatus.textContent = '✓ Copilot Relaunched on Page!';
+          } else {
+            relaunchStatus.textContent = 'Notice: Refresh store page (F5) once.';
+          }
           setTimeout(() => {
             if (relaunchStatus) relaunchStatus.hidden = true;
-          }, 3000);
+          }, 3500);
+        }
+      } catch (_) {
+        if (relaunchStatus) {
+          relaunchStatus.hidden = false;
+          relaunchStatus.textContent = 'Notice: Refresh store page (F5) once.';
+          setTimeout(() => {
+            if (relaunchStatus) relaunchStatus.hidden = true;
+          }, 3500);
         }
       } finally {
         btnRelaunch.disabled = false;

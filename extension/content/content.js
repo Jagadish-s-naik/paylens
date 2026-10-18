@@ -28,6 +28,7 @@ import { PaylensCard } from './card.js';
   let lastEvaluationKey = null;
 
   async function evaluateAffordability() {
+    if (typeof chrome === 'undefined' || !chrome.runtime?.id) return;
     if (isEvaluating) return;
 
     // 1. Extract and validate listing first before touching the DOM
@@ -58,6 +59,7 @@ import { PaylensCard } from './card.js';
     card.renderLoading();
 
     try {
+      if (!chrome.runtime?.id) return;
       const response = await chrome.runtime.sendMessage({
         type: 'AFFORD',
         payload: {
@@ -71,9 +73,12 @@ import { PaylensCard } from './card.js';
         if (err?.code === 'NO_PROFILE') {
           card.renderNoProfile({
             onOpenOptions: () => {
-              chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS' });
+              if (chrome.runtime?.id) {
+                chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS' }).catch(() => {});
+              }
             },
             onLoadDemo: async () => {
+              if (!chrome.runtime?.id) return;
               // Quick-load Rahul Demo directly from service worker
               card.renderLoading('Loading Rahul Sharma (12 LPA) demo persona...');
               const demoProfilesRes = await chrome.runtime.sendMessage({ type: 'DEMO_PROFILES' });
@@ -104,6 +109,9 @@ import { PaylensCard } from './card.js';
       const verdict = response.data;
       renderActiveVerdict(verdict, 'en', selectedOptionId);
     } catch (err) {
+      if (!chrome.runtime?.id || err?.message?.includes('Extension context invalidated')) {
+        return; // Suppress orphaned context errors after extension reloads
+      }
       console.error('[Paylens Content] Evaluation error:', err);
       card.renderError(err.message || 'Error communicating with Paylens extension.', {
         onRetry: () => {
@@ -129,10 +137,13 @@ import { PaylensCard } from './card.js';
         evaluateAffordability();
       },
       onOpenOptions: () => {
-        chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS' });
+        if (chrome.runtime?.id) {
+          chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS' }).catch(() => {});
+        }
       },
       onLanguageChange: async (newLang) => {
         try {
+          if (!chrome.runtime?.id) return;
           const explainRes = await chrome.runtime.sendMessage({
             type: 'EXPLAIN',
             payload: { verdict, language: newLang }
@@ -142,7 +153,9 @@ import { PaylensCard } from './card.js';
             renderActiveVerdict(verdict, newLang, optId);
           }
         } catch (e) {
-          console.warn('[Paylens Content] Language explanation error:', e);
+          if (chrome.runtime?.id && !e?.message?.includes('Extension context invalidated')) {
+            console.warn('[Paylens Content] Language explanation error:', e);
+          }
         }
       }
     });
@@ -150,6 +163,7 @@ import { PaylensCard } from './card.js';
 
   // 3. Start observing option and product changes (150ms debounced)
   adapter.observe(document, () => {
+    if (!chrome.runtime?.id) return;
     activeOptionOverride = null; // Reset user override on product switch
     evaluateAffordability();
   });

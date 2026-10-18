@@ -6,9 +6,12 @@
 
 (async function loadPaylensModularContentScript() {
   try {
+    if (typeof chrome === 'undefined' || !chrome.runtime?.id) return;
     const src = chrome.runtime.getURL('content/content.js');
     await import(src);
   } catch (err) {
-    console.error('[Paylens Loader] Error dynamically importing content.js:', err);
+    if (!err?.message?.includes('Extension context invalidated')) {
+      console.error('[Paylens Loader] Error dynamically importing content.js:', err);
+    }
   }
 })();

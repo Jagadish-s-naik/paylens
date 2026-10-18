@@ -320,7 +320,7 @@ function parseInEmiHtml(htmlText, listPrice, cashDiscount) {
  * Fetches live Amazon InEMI table via background service worker proxy
  */
 async function fetchLiveAmazonEmi(asin, olid, listPrice, cashDiscount) {
-  if (!asin || typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) {
+  if (!asin || typeof chrome === 'undefined' || !chrome.runtime?.id || !chrome.runtime?.sendMessage) {
     return [];
   }
 
@@ -334,13 +334,26 @@ async function fetchLiveAmazonEmi(asin, olid, listPrice, cashDiscount) {
   try {
     const res = await new Promise((resolve) => {
       const timeout = setTimeout(() => resolve(null), 2500);
-      chrome.runtime.sendMessage({
-        type: 'FETCH_STORE_DATA',
-        payload: { url: inEmiUrl, options: { timeoutMs: 2500 } }
-      }, (response) => {
+      try {
+        if (!chrome.runtime?.id) {
+          clearTimeout(timeout);
+          return resolve(null);
+        }
+        chrome.runtime.sendMessage({
+          type: 'FETCH_STORE_DATA',
+          payload: { url: inEmiUrl, options: { timeoutMs: 2500 } }
+        }, (response) => {
+          clearTimeout(timeout);
+          // Check lastError to suppress Chrome's automatic error logging on context invalidation
+          if (chrome.runtime.lastError) {
+            return resolve(null);
+          }
+          resolve(response);
+        });
+      } catch (_) {
         clearTimeout(timeout);
-        resolve(response);
-      });
+        resolve(null);
+      }
     });
 
     if (res && res.ok && res.data && res.data.body) {
@@ -351,7 +364,9 @@ async function fetchLiveAmazonEmi(asin, olid, listPrice, cashDiscount) {
       }
     }
   } catch (err) {
-    console.warn('[Paylens AmazonAdapter] Live InEMI fetch error:', err);
+    if (!err?.message?.includes('Extension context invalidated') && chrome.runtime?.id) {
+      console.warn('[Paylens AmazonAdapter] Live InEMI fetch error:', err);
+    }
   }
 
   return [];
