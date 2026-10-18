@@ -17,9 +17,11 @@ let demoPersonas = [];
 let savedPulseTimer = null;
 let currentProfile = null;
 let activeProductContext = {
-  productId: 'sony_wh1000xm5',
-  optionId: 'sony_nocost_6m',
-  title: 'Sony WH-1000XM5'
+  isProductPage: false,
+  productId: null,
+  optionId: null,
+  title: null,
+  retailer: null
 };
 
 function formatINR(amount) {
@@ -27,6 +29,32 @@ function formatINR(amount) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
+}
+
+/**
+ * Validates whether a URL strictly matches a supported e-commerce product detail page.
+ */
+function isEcommerceProductUrl(url = '') {
+  if (!url) return false;
+  const u = url.toLowerCase();
+
+  // 1. Amazon PDP
+  if ((u.includes('amazon.in') || u.includes('amazon.com') || u.includes('amazon.')) &&
+      (u.includes('/dp/') || u.includes('/gp/product/') || u.includes('/gp/aw/d/'))) {
+    return true;
+  }
+
+  // 2. Flipkart PDP
+  if (u.includes('flipkart.com') && (u.includes('/p/') || u.includes('pid=') || u.includes('/itm'))) {
+    return true;
+  }
+
+  // 3. MockStore PDP
+  if (u.includes('/mock-shop/') || u.includes('mock-shop')) {
+    return true;
+  }
+
+  return false;
 }
 
 // ============================================================================
@@ -64,42 +92,76 @@ function setupPersonaDropdown() {
 
 /**
  * Detects the active storefront product by messaging the active tab
- * or inspecting the active tab URL.
+ * or strictly validating known e-commerce URL patterns.
  */
 async function detectActiveStoreContext() {
+  activeProductContext = {
+    isProductPage: false,
+    productId: null,
+    optionId: null,
+    title: null,
+    retailer: null
+  };
+
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab) return;
+
+    const tabUrl = (tab.url || '').toLowerCase();
+    const isEcom = isEcommerceProductUrl(tabUrl);
 
     // 1. Try querying content script directly
     if (tab.id) {
       try {
         const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_ACTIVE_SELECTION' });
-        if (response?.ok && response.data?.productId) {
+        if (response?.ok && response.data?.isProductPage && response.data?.productId) {
+          activeProductContext.isProductPage = true;
           activeProductContext.productId = response.data.productId;
           activeProductContext.optionId = response.data.optionId || 'cash_full';
           activeProductContext.title = response.data.title || formatProductTitle(response.data.productId);
+          activeProductContext.retailer = response.data.retailer || 'Online Retailer';
           return;
         }
       } catch (_) {
-        // Content script might not be injected on non-store tabs; fallback to URL
+        // Content script might not be injected on non-store tabs
       }
     }
 
-    // 2. Fallback to URL pattern inspection
-    const url = (tab.url || '').toLowerCase();
-    if (url.includes('iphone') || url.endsWith('#iphone')) {
-      activeProductContext.productId = 'iphone_16_pro';
-      activeProductContext.optionId = 'iphone_nocost_6m';
-      activeProductContext.title = 'Apple iPhone 16 Pro';
-    } else if (url.includes('laptop') || url.includes('rog') || url.endsWith('#laptop')) {
-      activeProductContext.productId = 'asus_rog_strix';
-      activeProductContext.optionId = 'laptop_std_12m';
-      activeProductContext.title = 'ASUS ROG Strix G16';
-    } else if (url.includes('sony') || url.endsWith('#sony')) {
-      activeProductContext.productId = 'sony_wh1000xm5';
-      activeProductContext.optionId = 'sony_nocost_6m';
-      activeProductContext.title = 'Sony WH-1000XM5';
+    // 2. If content script didn't respond with a verified product, ONLY proceed if URL matches a known store PDP
+    if (!isEcom) {
+      activeProductContext.isProductPage = false;
+      return;
+    }
+
+    // 3. Fallback to URL pattern inspection for recognized e-commerce PDPs only
+    if (tabUrl.includes('amazon.')) {
+      activeProductContext.isProductPage = true;
+      activeProductContext.productId = 'amazon_item';
+      activeProductContext.optionId = 'nocost_6m';
+      activeProductContext.title = tab.title ? tab.title.split(':')[0].trim() : 'Amazon Product';
+      activeProductContext.retailer = 'Amazon';
+    } else if (tabUrl.includes('flipkart.')) {
+      activeProductContext.isProductPage = true;
+      activeProductContext.productId = 'flipkart_item';
+      activeProductContext.optionId = 'nocost_6m';
+      activeProductContext.title = tab.title ? tab.title.split('|')[0].trim() : 'Flipkart Product';
+      activeProductContext.retailer = 'Flipkart';
+    } else if (tabUrl.includes('/mock-shop/') || tabUrl.includes('mock-shop')) {
+      activeProductContext.isProductPage = true;
+      if (tabUrl.includes('iphone') || tabUrl.endsWith('#iphone')) {
+        activeProductContext.productId = 'iphone_16_pro';
+        activeProductContext.optionId = 'iphone_nocost_6m';
+        activeProductContext.title = 'Apple iPhone 16 Pro';
+      } else if (tabUrl.includes('laptop') || tabUrl.includes('rog') || tabUrl.endsWith('#laptop')) {
+        activeProductContext.productId = 'asus_rog_strix';
+        activeProductContext.optionId = 'laptop_std_12m';
+        activeProductContext.title = 'ASUS ROG Strix G16';
+      } else {
+        activeProductContext.productId = 'sony_wh1000xm5';
+        activeProductContext.optionId = 'sony_nocost_6m';
+        activeProductContext.title = 'Sony WH-1000XM5';
+      }
+      activeProductContext.retailer = 'MockStore';
     }
   } catch (err) {
     console.warn('[Paylens Popup] Could not inspect active tab:', err);
@@ -110,7 +172,8 @@ function formatProductTitle(pid = '') {
   const p = pid.toLowerCase();
   if (p.includes('iphone')) return 'Apple iPhone 16 Pro';
   if (p.includes('laptop') || p.includes('rog')) return 'ASUS ROG Strix G16';
-  return 'Sony WH-1000XM5';
+  if (p.includes('sony')) return 'Sony WH-1000XM5';
+  return 'E-Commerce Product';
 }
 
 async function loadActiveProfileAndVerdict() {
@@ -133,24 +196,59 @@ async function loadActiveProfileAndVerdict() {
     syncDropdownSelection(currentProfile);
   }
 
-  // Compute live verdict for active store product + active profile
-  refreshVerdictPreview();
+  // Compute live verdict for active store product or load cached store evaluation
+  await refreshVerdictPreview();
 }
 
-function refreshVerdictPreview() {
+async function refreshVerdictPreview() {
   if (!currentProfile) return;
 
-  const verdict = resolveMockVerdict({
-    productId: activeProductContext.productId,
-    optionId: activeProductContext.optionId,
-    profileId: currentProfile.profile_id,
-    profile: currentProfile
-  });
+  const verdictContainer = document.getElementById('last-verdict-container');
+  const standbyContainer = document.getElementById('standby-notice-container');
 
-  renderLastVerdict(verdict, activeProductContext.title);
+  // Case 1: Active tab is a verified e-commerce product
+  if (activeProductContext.isProductPage && activeProductContext.productId) {
+    const verdict = resolveMockVerdict({
+      productId: activeProductContext.productId,
+      optionId: activeProductContext.optionId,
+      profileId: currentProfile.profile_id,
+      profile: currentProfile
+    });
 
-  // Cache to storage
-  chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.LAST_VERDICT]: verdict }).catch(() => {});
+    if (standbyContainer) standbyContainer.hidden = true;
+    renderLastVerdict(verdict, activeProductContext.title, {
+      boxHeader: 'Active Product Evaluation',
+      isLive: true
+    });
+
+    // Cache to storage
+    chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.LAST_VERDICT]: verdict }).catch(() => {});
+    return;
+  }
+
+  // Case 2: Active tab is NOT an e-commerce product page (e.g. jagadish.linklee.in)
+  // Check if we have a real store verdict cached from a recent visit
+  try {
+    const storageKey = CONFIG.STORAGE_KEYS.LAST_VERDICT;
+    const stored = await chrome.storage.local.get(storageKey);
+    const lastVerdict = stored[storageKey];
+
+    if (lastVerdict && lastVerdict.headline_reason) {
+      if (standbyContainer) standbyContainer.hidden = true;
+      const lastTitle = lastVerdict.selected_option?.label
+        ? `Last Store Visit: ${lastVerdict.selected_option.label}`
+        : 'Recent Store Evaluation';
+      renderLastVerdict(lastVerdict, lastTitle, {
+        boxHeader: 'Last Store Evaluation',
+        contextNote: 'Active tab is not an e-commerce product'
+      });
+      return;
+    }
+  } catch (_) {}
+
+  // Case 3: No active product and no stored verdict -> Show clean Standby Mode
+  if (verdictContainer) verdictContainer.hidden = true;
+  if (standbyContainer) standbyContainer.hidden = false;
 }
 
 // ============================================================================
@@ -224,13 +322,19 @@ function syncDropdownSelection(p) {
   }
 }
 
-function renderLastVerdict(verdict, productTitle = '') {
+function renderLastVerdict(verdict, productTitle = '', options = {}) {
   const container = document.getElementById('last-verdict-container');
+  const headerEl = document.getElementById('verdict-box-header');
   const pill = document.getElementById('verdict-tier-pill');
   const titleEl = document.getElementById('verdict-product-title');
+  const contextEl = document.getElementById('verdict-context-tag');
   const reason = document.getElementById('verdict-reason-preview');
 
   if (!container || !verdict) return;
+
+  if (headerEl) {
+    headerEl.textContent = options.boxHeader || 'Current Product Evaluation';
+  }
 
   const tier = (verdict.verdict_level || verdict.tier || 'COMFORTABLE').toUpperCase();
   const score = verdict.affordability_score ?? 85;
@@ -254,8 +358,16 @@ function renderLastVerdict(verdict, productTitle = '') {
   }
 
   if (titleEl) {
-    const title = productTitle || activeProductContext.title || 'Product';
-    titleEl.textContent = title;
+    titleEl.textContent = productTitle || activeProductContext.title || 'Product';
+  }
+
+  if (contextEl) {
+    if (options.contextNote) {
+      contextEl.textContent = options.contextNote;
+      contextEl.hidden = false;
+    } else {
+      contextEl.hidden = true;
+    }
   }
 
   if (reason) {
@@ -322,6 +434,40 @@ function bindEvents() {
 
   if (btnOptions) btnOptions.addEventListener('click', openOptions);
   if (btnQuickOptions) btnQuickOptions.addEventListener('click', openOptions);
+
+  // Relaunch Copilot Screen on Page
+  const btnRelaunch = document.getElementById('btn-relaunch-copilot');
+  const relaunchStatus = document.getElementById('relaunch-status');
+
+  if (btnRelaunch) {
+    btnRelaunch.addEventListener('click', async () => {
+      try {
+        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (activeTab?.id) {
+          btnRelaunch.disabled = true;
+          await chrome.tabs.sendMessage(activeTab.id, { type: 'RELAUNCH_COPILOT' });
+          if (relaunchStatus) {
+            relaunchStatus.hidden = false;
+            relaunchStatus.textContent = '✓ Copilot Relaunched on Page!';
+            setTimeout(() => {
+              if (relaunchStatus) relaunchStatus.hidden = true;
+            }, 3000);
+          }
+        }
+      } catch (err) {
+        console.warn('[Paylens Popup] Failed to relaunch copilot on page:', err);
+        if (relaunchStatus) {
+          relaunchStatus.hidden = false;
+          relaunchStatus.textContent = 'Notice: Refresh store page if not responding.';
+          setTimeout(() => {
+            if (relaunchStatus) relaunchStatus.hidden = true;
+          }, 3000);
+        }
+      } finally {
+        btnRelaunch.disabled = false;
+      }
+    });
+  }
 }
 
 function showSavedPulse() {

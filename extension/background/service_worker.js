@@ -144,6 +144,17 @@ async function handleMessage(message) {
     case 'PROFILE_BUILD':
       return await handleProfileBuild(payload);
 
+    case 'FETCH_STORE_DATA':
+      return await handleFetchStoreData(payload);
+
+    case 'OPEN_OPTIONS':
+      if (chrome.runtime.openOptionsPage) {
+        chrome.runtime.openOptionsPage();
+      } else {
+        chrome.tabs.create({ url: chrome.runtime.getURL('options/options.html') });
+      }
+      return { ok: true };
+
     default:
       return {
         ok: false,
@@ -353,3 +364,74 @@ async function handleProfileBuild(payload) {
     }
   };
 }
+
+/**
+ * Proxies requests to e-commerce storefront endpoints (e.g. Amazon inemi-rates, secondaryView)
+ * to bypass content-script CORS and CSP restrictions.
+ * Payload: { url: string, options?: { method?: string, headers?: Record<string, string>, timeoutMs?: number } }
+ */
+async function handleFetchStoreData(payload) {
+  if (!payload || !payload.url) {
+    return { ok: false, error: { code: 'VALIDATION', message: 'Missing target URL in FETCH_STORE_DATA payload.' } };
+  }
+
+  const { url, options = {} } = payload;
+
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const isAllowedHost = host.endsWith('amazon.in') || host.endsWith('amazon.com') || host.endsWith('flipkart.com');
+    if (!isAllowedHost) {
+      return { ok: false, error: { code: 'FORBIDDEN_DOMAIN', message: `Host ${host} is not permitted for store fetching.` } };
+    }
+
+    const controller = new AbortController();
+    const timeoutMs = options.timeoutMs || 6000;
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    const fetchOptions = {
+      method: options.method || 'GET',
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8',
+        'X-Requested-With': 'XMLHttpRequest',
+        ...(options.headers || {})
+      },
+      signal: controller.signal
+    };
+
+    if (options.body && options.method !== 'GET') {
+      fetchOptions.body = options.body;
+    }
+
+    const response = await fetch(url, fetchOptions);
+    clearTimeout(timer);
+
+    const contentType = response.headers.get('content-type') || '';
+    let resultData = null;
+    if (contentType.includes('application/json')) {
+      resultData = await response.json();
+    } else {
+      resultData = await response.text();
+    }
+
+    return {
+      ok: true,
+      data: {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: contentType,
+        body: resultData
+      }
+    };
+  } catch (err) {
+    const isTimeout = err.name === 'AbortError';
+    return {
+      ok: false,
+      error: {
+        code: isTimeout ? 'TIMEOUT' : 'FETCH_FAILED',
+        message: isTimeout ? 'Store request timed out.' : (err.message || 'Store request failed.')
+      }
+    };
+  }
+}
+

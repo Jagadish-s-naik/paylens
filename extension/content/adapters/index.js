@@ -4,9 +4,15 @@
  */
 
 import { MockShopAdapter } from './mock_shop.js';
+import { AmazonAdapter } from './amazon.js';
+import { FlipkartAdapter } from './flipkart.js';
+import { GenericAdapter } from './generic.js';
 
 export const ADAPTERS = [
-  MockShopAdapter
+  MockShopAdapter,
+  AmazonAdapter,
+  FlipkartAdapter,
+  GenericAdapter
 ];
 
 /**

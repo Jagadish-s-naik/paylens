@@ -5,13 +5,16 @@
  */
 
 :host {
-  display: block;
   all: initial;
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483647;
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color: #0f172a;
   box-sizing: border-box;
-  margin: 18px 0;
-  width: 100%;
+  pointer-events: none;
+  line-height: normal;
 }
 
 *, *::before, *::after {
@@ -21,15 +24,223 @@
 }
 
 /* ============================================================================
+   Floating Trigger Launcher Button
+   ============================================================================ */
+.paylens-floating-trigger {
+  pointer-events: auto;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff;
+  border: 1.5px solid rgba(56, 189, 248, 0.4);
+  padding: 10px 18px;
+  border-radius: 9999px;
+  cursor: pointer;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.35), 0 0 16px rgba(56, 189, 248, 0.2);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+  user-select: none;
+  outline: none;
+}
+
+.paylens-floating-trigger:hover {
+  transform: translateY(-2px) scale(1.03);
+  border-color: #38bdf8;
+  box-shadow: 0 14px 28px -5px rgba(15, 23, 42, 0.45), 0 0 24px rgba(56, 189, 248, 0.35);
+}
+
+.paylens-floating-trigger:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.paylens-floating-trigger.trigger-active {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.3), 0 10px 25px -5px rgba(15, 23, 42, 0.4);
+}
+
+.floating-icon-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.floating-title {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+/* Status Pulse Dot */
+.status-pulse-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 9999px;
+  border: 1.5px solid #0f172a;
+}
+
+.status-pulse-dot.comfortable { background: #10b981; box-shadow: 0 0 8px #10b981; }
+.status-pulse-dot.stretch { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+.status-pulse-dot.risky { background: #ef4444; box-shadow: 0 0 8px #ef4444; animation: pulse-ring 2s infinite; }
+.status-pulse-dot.loading { background: #38bdf8; box-shadow: 0 0 8px #38bdf8; }
+.status-pulse-dot.setup { background: #f59e0b; }
+.status-pulse-dot.notice { background: #ef4444; }
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* Floating Status Pills */
+.floating-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.floating-pill.pill-comfortable {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.floating-pill.pill-stretch {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.floating-pill.pill-risky {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.floating-pill.pill-loading {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.floating-pill.pill-setup {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.floating-pill.pill-notice {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* ============================================================================
+   Floating Panel Wrapper & Modal Card
+   ============================================================================ */
+.paylens-panel-wrapper {
+  pointer-events: auto;
+  position: absolute;
+  bottom: 56px;
+  right: 0;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 90px);
+  z-index: 2147483647;
+  display: flex;
+  flex-direction: column;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.25s;
+  transform-origin: bottom right;
+}
+
+.paylens-panel-wrapper.panel-closed {
+  opacity: 0;
+  transform: translateY(14px) scale(0.95);
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.paylens-panel-wrapper.panel-open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+  visibility: visible;
+}
+
+/* Close & Dismiss Buttons */
+.btn-close-panel {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #cbd5e1;
+  font-size: 0.875rem;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.btn-close-panel:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #fca5a5;
+}
+
+.card-footer-dismiss {
+  padding: 10px 20px 14px 20px;
+  display: flex;
+  justify-content: center;
+  border-top: 1px solid #f1f5f9;
+  background: #f8fafc;
+}
+
+.btn-remove-section {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.btn-remove-section:hover {
+  color: #ef4444;
+  background: #fee2e2;
+}
+
+/* ============================================================================
    Main Card Container (Glassmorphic Surface)
    ============================================================================ */
 .paylens-card {
   background: #ffffff;
   border: 1.5px solid #e2e8f0;
-  border-radius: 16px;
-  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
-  overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 18px;
+  box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.2), 0 0 0 1px rgba(15, 23, 42, 0.05);
+  overflow-y: auto;
+  max-height: calc(100vh - 90px);
+  scrollbar-width: thin;
+  transition: all 0.2s ease;
   position: relative;
 }
 
@@ -653,3 +864,70 @@
 .retry-btn:hover {
   background: #f8fafc;
 }
+
+/* ============================================================================
+   Interactive Payment Option Selector Bar
+   ============================================================================ */
+.payment-options-selector {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.option-pills-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 2px 6px 2px;
+  scrollbar-width: thin;
+}
+
+.option-pill {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 125px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+  flex-shrink: 0;
+}
+
+.option-pill:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.option-pill.active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.opt-pill-title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.option-pill.active .opt-pill-title {
+  color: #1d4ed8;
+}
+
+.opt-pill-amount {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.option-pill.active .opt-pill-amount {
+  color: #1e3a8a;
+}
+

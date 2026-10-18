@@ -602,33 +602,34 @@ export function resolveMockVerdict({ productId = "", optionId = "", profileId = 
   const isSony = pid.includes("sony") || pid.includes("wh1000xm5");
   const isIphone = pid.includes("iphone");
   const isLaptop = pid.includes("laptop") || pid.includes("rog");
+  const isMockStore = !listing || listing.retailer === "MockStore";
 
   // =========================================================================
-  // 1. Canonical Golden Fixtures for Scenario Testing
+  // 1. Canonical Golden Fixtures for Scenario Testing (ApexStore Mock Only)
   // =========================================================================
 
   // Scenario 1: Rahul + Sony WH-1000XM5 + No-Cost EMI (30.74% EAR Markup)
-  if (isSony && isRahul && !isCash) {
+  if (isMockStore && isSony && isRahul && !isCash) {
     return JSON.parse(JSON.stringify(MOCK_DATA.verdicts.sony_rahul));
   }
 
   // Scenario 2: Vikram + iPhone 16 Pro + No-Cost EMI (March TDS Spike)
-  if (isIphone && isVikram && !isCash) {
+  if (isMockStore && isIphone && isVikram && !isCash) {
     return JSON.parse(JSON.stringify(MOCK_DATA.verdicts.iphone_vikram));
   }
 
   // Scenario 3: Amit + Gaming Laptop + EMI (Risky Debt, Cash Deficit)
-  if (isLaptop && isAmit && !isCash) {
+  if (isMockStore && isLaptop && isAmit && !isCash) {
     return JSON.parse(JSON.stringify(MOCK_DATA.verdicts.laptop_amit));
   }
 
   // Scenario 2 (Rahul): Rahul + iPhone 16 Pro + No-Cost EMI (Budget Stretch)
-  if (isIphone && isRahul && !isCash) {
+  if (isMockStore && isIphone && isRahul && !isCash) {
     return JSON.parse(JSON.stringify(MOCK_DATA.verdicts.iphone_rahul));
   }
 
   // =========================================================================
-  // 2. Dynamic Evaluation for All Other Combinations (Amit, Vikram, Cash, Options)
+  // 2. Dynamic Evaluation for All Products (Real E-Commerce & Custom Scenarios)
   // =========================================================================
 
   // Resolve Profile Stats
@@ -645,9 +646,16 @@ export function resolveMockVerdict({ productId = "", optionId = "", profileId = 
   let installment = 4998.33;
   let tenure = 6;
   let fee = 199.0;
-  let prodTitle = "Sony WH-1000XM5";
+  let prodTitle = "Product";
 
-  if (isIphone) {
+  if (listing) {
+    if (listing.title) prodTitle = listing.title;
+    if (listing.upfront_cash_price !== undefined) listPrice = Number(listing.upfront_cash_price);
+    if (listing.cash_discount !== undefined) cashDiscount = Number(listing.cash_discount);
+    if (listing.effective_cash_price !== undefined) cashPrice = Number(listing.effective_cash_price);
+    else cashPrice = Math.max(0, listPrice - cashDiscount);
+    installment = Math.round((cashPrice / 6) * 100) / 100;
+  } else if (isIphone) {
     prodTitle = "iPhone 16 Pro";
     listPrice = 119900.0;
     cashDiscount = 5000.0;
@@ -666,20 +674,39 @@ export function resolveMockVerdict({ productId = "", optionId = "", profileId = 
   }
 
   // Extract option specifics if provided in listing payload
+  let optObj = null;
   if (listing && Array.isArray(listing.payment_options)) {
-    const optObj = listing.payment_options.find((o) => (o.option_id || "").toLowerCase() === optId);
+    optObj = listing.payment_options.find((o) => (o.option_id || "").toLowerCase() === optId);
+    if (!optObj && listing.payment_options.length > 0) {
+      optObj = listing.payment_options[0];
+    }
     if (optObj) {
       if (optObj.monthly_installment) installment = Number(optObj.monthly_installment);
       if (optObj.tenure_months) tenure = Number(optObj.tenure_months);
       if (optObj.processing_fee !== undefined) fee = Number(optObj.processing_fee);
+      if (optObj.lost_cash_discount !== undefined && optObj.lost_cash_discount !== null) {
+        cashDiscount = Number(optObj.lost_cash_discount);
+      }
     }
   }
 
   // 1. True Cost Calculation
   const totalOutflow = isCash ? cashPrice : Math.round((installment * tenure + fee) * 100) / 100;
   const hiddenMarkup = isCash ? 0.0 : Math.max(0, Math.round((totalOutflow - cashPrice) * 100) / 100);
-  const ear = isCash ? 0.0 : (optId.includes("nocost") ? (tenure <= 6 ? 30.74 : 16.63) : 27.44);
-  const hasHighApr = !isCash && ear >= 24.0;
+  
+  let ear = 0.0;
+  if (!isCash) {
+    if (cashDiscount > 0 && cashPrice > 0) {
+      ear = Math.round(((cashDiscount / cashPrice) * (12 / tenure) * 100 + ((optObj?.stated_interest_rate || 0) * 1.05)) * 100) / 100;
+    } else if (optObj && optObj.stated_interest_rate > 0) {
+      ear = Math.round((optObj.stated_interest_rate * 1.08) * 100) / 100;
+    } else if (fee > 0 && cashPrice > 0) {
+      ear = Math.round(((fee / cashPrice) * (12 / tenure) * 100) * 100) / 100;
+    } else {
+      ear = optId.includes("nocost") ? 24.5 : 15.0;
+    }
+  }
+  const hasHighApr = !isCash && ear >= 20.0;
   const isZeroCost = isCash || hiddenMarkup <= 0;
 
   // 2. Financial Impact Calculation

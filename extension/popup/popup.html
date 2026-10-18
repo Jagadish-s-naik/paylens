@@ -79,15 +79,38 @@
       </ul>
     </div>
 
-    <!-- Last Evaluated Verdict Preview (If Available) -->
+    <!-- Product Evaluation Preview (Active Store Product or Recent Visit) -->
     <div class="section-box last-verdict-box" id="last-verdict-container" hidden>
       <div class="box-header">
-        <span class="box-label">Last Evaluation</span>
+        <span class="box-label" id="verdict-box-header">Current Product Evaluation</span>
         <span class="verdict-tier-pill" id="verdict-tier-pill">🟢 COMFORTABLE</span>
       </div>
-      <div class="verdict-product-title" id="verdict-product-title" style="font-size: 0.6875rem; font-weight: 700; color: #2563eb; margin: 2px 0 4px 0;">Product</div>
+      <div class="verdict-product-title" id="verdict-product-title" style="font-size: 0.6875rem; font-weight: 700; color: #2563eb; margin: 2px 0 2px 0;">Product</div>
+      <div class="verdict-context-tag" id="verdict-context-tag" style="font-size: 0.625rem; color: #64748b; margin-bottom: 4px;" hidden></div>
       <p class="verdict-reason-preview" id="verdict-reason-preview">
         Budget-safe (11.3% FOIR), but financing costs 30.74% EAR markup.
+      </p>
+
+      <!-- Relaunch Copilot Screen on Page -->
+      <div class="relaunch-action-row" id="relaunch-action-row">
+        <button class="btn-relaunch-copilot" id="btn-relaunch-copilot" type="button" title="Relaunch Copilot screen or floating launcher on the website page">
+          <svg class="relaunch-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span>Relaunch Copilot on Page</span>
+        </button>
+        <span class="relaunch-status" id="relaunch-status" hidden>✓ Copilot Relaunched on Page</span>
+      </div>
+    </div>
+
+    <!-- Standby Notice (When viewing non-ecommerce websites) -->
+    <div class="section-box standby-box" id="standby-notice-container" hidden>
+      <div class="standby-header" style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+        <span class="standby-icon" style="font-size: 1rem;">🛍️</span>
+        <span class="box-label" style="font-weight: 700; color: #475569;">Paylens Standby</span>
+      </div>
+      <p class="standby-text" style="font-size: 0.75rem; color: #64748b; line-height: 1.4;">
+        Active tab is not an e-commerce product. Open an Amazon, Flipkart, or online store product page to evaluate purchase affordability.
       </p>
     </div>
 

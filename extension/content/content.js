@@ -23,30 +23,29 @@ import { PaylensCard } from './card.js';
   // 2. Initialize Card instance
   const card = new PaylensCard();
   let currentListing = null;
+  let activeOptionOverride = null;
   let isEvaluating = false;
   let lastEvaluationKey = null;
 
   async function evaluateAffordability() {
     if (isEvaluating) return;
 
-    // Locate Mount Point
-    const mountPoint = adapter.mountPoint(document);
+    // 1. Extract and validate listing first before touching the DOM
+    const listing = await Promise.resolve(adapter.extract(document));
+    const selectedOptionId = activeOptionOverride || (await Promise.resolve(adapter.selectedOptionId(document)));
+
+    if (!listing || !listing.product_id || !listing.upfront_cash_price || listing.upfront_cash_price <= 0 || !selectedOptionId) {
+      return; // Non-product page or price unextractable: do not mount
+    }
+
+    // 2. Locate Mount Point only for validated products
+    const mountPoint = adapter.mountPoint(document) || document.body;
     if (!mountPoint) {
-      console.warn('[Paylens Content] Mount point not found on page.');
       return;
     }
 
-    // Attach Shadow DOM if not already mounted
+    // 3. Attach Shadow DOM once product is confirmed
     card.mount(mountPoint);
-
-    // Extract listing and selected option
-    const listing = adapter.extract(document);
-    const selectedOptionId = adapter.selectedOptionId(document);
-
-    if (!listing || !selectedOptionId) {
-      console.log('[Paylens Content] Extraction yielded null or missing selected option.');
-      return;
-    }
 
     currentListing = listing;
     const evaluationKey = `${listing.product_id}:${selectedOptionId}`;
@@ -72,11 +71,7 @@ import { PaylensCard } from './card.js';
         if (err?.code === 'NO_PROFILE') {
           card.renderNoProfile({
             onOpenOptions: () => {
-              if (chrome.runtime.openOptionsPage) {
-                chrome.runtime.openOptionsPage();
-              } else {
-                window.open(chrome.runtime.getURL('options/options.html'), '_blank');
-              }
+              chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS' });
             },
             onLoadDemo: async () => {
               // Quick-load Rahul Demo directly from service worker
@@ -107,7 +102,7 @@ import { PaylensCard } from './card.js';
 
       // Success: render full verdict breakdown
       const verdict = response.data;
-      renderActiveVerdict(verdict);
+      renderActiveVerdict(verdict, 'en', selectedOptionId);
     } catch (err) {
       console.error('[Paylens Content] Evaluation error:', err);
       card.renderError(err.message || 'Error communicating with Paylens extension.', {
@@ -122,15 +117,19 @@ import { PaylensCard } from './card.js';
     }
   }
 
-  function renderActiveVerdict(verdict, language = 'en') {
+  function renderActiveVerdict(verdict, language = 'en', activeOptionId = null) {
+    const optId = activeOptionId || activeOptionOverride || adapter.selectedOptionId(document);
     card.renderVerdict(verdict, {
       currentLanguage: language,
+      listing: currentListing,
+      selectedOptionId: optId,
+      onSelectOption: (newOptionId) => {
+        activeOptionOverride = newOptionId;
+        lastEvaluationKey = null;
+        evaluateAffordability();
+      },
       onOpenOptions: () => {
-        if (chrome.runtime.openOptionsPage) {
-          chrome.runtime.openOptionsPage();
-        } else {
-          window.open(chrome.runtime.getURL('options/options.html'), '_blank');
-        }
+        chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS' });
       },
       onLanguageChange: async (newLang) => {
         try {
@@ -140,7 +139,7 @@ import { PaylensCard } from './card.js';
           });
           if (explainRes?.ok && explainRes.data?.bullets) {
             verdict.explanation_bullets = explainRes.data.bullets;
-            renderActiveVerdict(verdict, newLang);
+            renderActiveVerdict(verdict, newLang, optId);
           }
         } catch (e) {
           console.warn('[Paylens Content] Language explanation error:', e);
@@ -151,36 +150,65 @@ import { PaylensCard } from './card.js';
 
   // 3. Start observing option and product changes (150ms debounced)
   adapter.observe(document, () => {
+    activeOptionOverride = null; // Reset user override on product switch
     evaluateAffordability();
   });
 
   // Listen for queries and persona changes
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg?.type === 'GET_ACTIVE_SELECTION') {
-      const listing = adapter.extract(document);
-      const selectedOptionId = adapter.selectedOptionId(document);
-      sendResponse({
-        ok: true,
-        data: {
-          productId: listing?.product_id || null,
-          optionId: selectedOptionId || null,
-          title: listing?.title || null
-        }
-      });
-      return false;
+      (async () => {
+        const listing = currentListing || (await Promise.resolve(adapter.extract(document)));
+        const selectedOptionId = activeOptionOverride || (await Promise.resolve(adapter.selectedOptionId(document)));
+        const isValid = Boolean(listing && listing.product_id && listing.upfront_cash_price > 0);
+        sendResponse({
+          ok: isValid,
+          data: isValid ? {
+            isProductPage: true,
+            productId: listing.product_id,
+            optionId: selectedOptionId || null,
+            title: listing.title || null,
+            retailer: listing.retailer || null
+          } : {
+            isProductPage: false
+          }
+        });
+      })();
+      return true;
     }
     if (msg?.type === 'PROFILE_UPDATED') {
       lastEvaluationKey = null;
       isEvaluating = false;
       evaluateAffordability();
     }
+    if (msg?.type === 'RELAUNCH_COPILOT') {
+      card.isDismissed = false;
+      if (card.host) {
+        card.host.style.display = 'block';
+      } else {
+        const mountPoint = adapter.mountPoint(document) || document.body;
+        card.mount(mountPoint);
+      }
+      card.openPanel();
+      lastEvaluationKey = null;
+      isEvaluating = false;
+      evaluateAffordability();
+      sendResponse({ ok: true, message: 'Copilot relaunched on page.' });
+      return false;
+    }
   });
 
-  // 4. Initial evaluation run
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', evaluateAffordability);
-  } else {
+  // 4. Initial evaluation run with retry for delayed SPA rendering
+  const runInitialEvaluations = () => {
     evaluateAffordability();
+    setTimeout(evaluateAffordability, 500);
+    setTimeout(evaluateAffordability, 1500);
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', runInitialEvaluations);
+  } else {
+    runInitialEvaluations();
   }
 })();
 

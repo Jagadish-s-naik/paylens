@@ -1,7 +1,10 @@
 /**
  * extension/content/card.js
- * Open Shadow DOM Verdict Card Component.
- * Strict implementation of ARCHITECTURE.md §8.6 and PLAN.md §3 (Tasks B.4.1 & B.4.2).
+ * Open Shadow DOM Verdict Card & Floating Launcher Component.
+ * - Non-intrusive floating pill button docked in viewport
+ * - Expandable copilot panel triggered on click (does NOT auto-popup)
+ * - Close button (✕) and "Remove from page" option
+ * - Strict implementation of ARCHITECTURE.md §8.6.
  */
 
 export class PaylensCard {
@@ -11,6 +14,8 @@ export class PaylensCard {
     this.currentMount = null;
     this.currentVerdict = null;
     this.currentLanguage = 'en';
+    this.isOpen = false; // Closed by default: non-intrusive floating trigger
+    this.isDismissed = false;
     this.callbacks = {};
   }
 
@@ -34,22 +39,26 @@ export class PaylensCard {
   }
 
   /**
-   * Injects or binds the open shadow root at the target mount point.
+   * Injects or binds the open shadow root at document.body for fixed floating positioning.
    */
   mount(mountElement) {
-    if (!mountElement) return false;
     this.currentMount = mountElement;
 
-    let existingHost = mountElement.querySelector('#paylens-host');
+    // Attach host to document.body so the floating button & panel are fixed in viewport
+    let existingHost = document.getElementById('paylens-host');
     if (!existingHost) {
       existingHost = document.createElement('div');
       existingHost.id = 'paylens-host';
-      mountElement.appendChild(existingHost);
+      document.body.appendChild(existingHost);
     }
     this.host = existingHost;
 
+    if (this.isDismissed) {
+      this.isDismissed = false;
+    }
+    this.host.style.display = 'block';
+
     if (!this.host.shadowRoot) {
-      // Per Decision D12: Open Shadow DOM
       this.shadowRoot = this.host.attachShadow({ mode: 'open' });
     } else {
       this.shadowRoot = this.host.shadowRoot;
@@ -71,111 +80,270 @@ export class PaylensCard {
     return `<link rel="stylesheet" href="card.css">`;
   }
 
+  /**
+   * Toggles the copilot panel open/closed.
+   */
+  togglePanel() {
+    this.isDismissed = false;
+    if (this.host) {
+      this.host.style.display = 'block';
+    }
+    this.isOpen = !this.isOpen;
+    this._updatePanelVisibility();
+  }
+
+  openPanel() {
+    this.isDismissed = false;
+    if (this.host) {
+      this.host.style.display = 'block';
+    }
+    this.isOpen = true;
+    this._updatePanelVisibility();
+  }
+
+  closePanel() {
+    this.isOpen = false;
+    this._updatePanelVisibility();
+  }
+
+  dismiss() {
+    this.isDismissed = true;
+    this.isOpen = false;
+    if (this.host) {
+      this.host.style.display = 'none';
+    }
+  }
+
+  _updatePanelVisibility() {
+    if (!this.shadowRoot) return;
+    const panel = this.shadowRoot.querySelector('.paylens-panel-wrapper');
+    const trigger = this.shadowRoot.querySelector('.paylens-floating-trigger');
+
+    if (panel) {
+      if (this.isOpen) {
+        panel.classList.remove('panel-closed');
+        panel.classList.add('panel-open');
+      } else {
+        panel.classList.remove('panel-open');
+        panel.classList.add('panel-closed');
+      }
+    }
+    if (trigger) {
+      if (this.isOpen) {
+        trigger.classList.add('trigger-active');
+      } else {
+        trigger.classList.remove('trigger-active');
+      }
+    }
+  }
+
   // ==========================================================================
-  // State 1: Loading (Shimmer)
+  // State 1: Loading
   // ==========================================================================
   renderLoading(message = 'Analyzing true financing cost & affordability...') {
-    if (!this.shadowRoot) return;
+    if (!this.shadowRoot || this.isDismissed) return;
 
     this.shadowRoot.innerHTML = `
       ${this._getStyleTag()}
-      <div class="paylens-card">
-        <div class="card-header-brand">
-          <div class="brand-left">
-            <span class="brand-title">Paylens Copilot</span>
-            <span class="brand-pill">Calculating</span>
+      
+      <!-- Collapsible Floating Panel -->
+      <div class="paylens-panel-wrapper ${this.isOpen ? 'panel-open' : 'panel-closed'}">
+        <div class="paylens-card">
+          <div class="card-header-brand">
+            <div class="brand-left">
+              <svg class="brand-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              <span class="brand-title">Paylens Copilot</span>
+              <span class="brand-pill">Calculating</span>
+            </div>
+            <div class="brand-actions">
+              <button class="btn-icon-link btn-close-panel" type="button" title="Close Panel">✕</button>
+            </div>
+          </div>
+          <div class="state-loading">
+            <div class="shimmer-bar shimmer-badge"></div>
+            <div class="shimmer-bar shimmer-headline"></div>
+            <div class="shimmer-bar shimmer-box"></div>
+            <p style="font-size: 0.75rem; color: #64748b; margin-top: 4px;">${message}</p>
           </div>
         </div>
-        <div class="state-loading">
-          <div class="shimmer-bar shimmer-badge"></div>
-          <div class="shimmer-bar shimmer-headline"></div>
-          <div class="shimmer-bar shimmer-box"></div>
-          <p style="font-size: 0.75rem; color: #64748b; margin-top: 4px;">${message}</p>
-        </div>
       </div>
+
+      <!-- Floating Trigger Button -->
+      <button class="paylens-floating-trigger ${this.isOpen ? 'trigger-active' : ''}" type="button" aria-label="Open Paylens Affordability Copilot">
+        <div class="floating-icon-wrapper">
+          <svg class="brand-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span class="status-pulse-dot loading"></span>
+        </div>
+        <span class="floating-title">Paylens Copilot</span>
+        <span class="floating-pill pill-loading">Calculating...</span>
+      </button>
     `;
+
+    this._bindCommonEvents();
   }
 
   // ==========================================================================
   // State 2: No Profile (Onboarding CTA)
   // ==========================================================================
   renderNoProfile({ onOpenOptions, onLoadDemo } = {}) {
-    if (!this.shadowRoot) return;
+    if (!this.shadowRoot || this.isDismissed) return;
 
     this.shadowRoot.innerHTML = `
       ${this._getStyleTag()}
-      <div class="paylens-card">
-        <div class="card-header-brand">
-          <div class="brand-left">
-            <span class="brand-title">Paylens Copilot</span>
-            <span class="brand-pill">Setup Required</span>
+      
+      <!-- Collapsible Floating Panel -->
+      <div class="paylens-panel-wrapper ${this.isOpen ? 'panel-open' : 'panel-closed'}">
+        <div class="paylens-card">
+          <div class="card-header-brand">
+            <div class="brand-left">
+              <svg class="brand-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              <span class="brand-title">Paylens Copilot</span>
+              <span class="brand-pill">Setup Required</span>
+            </div>
+            <div class="brand-actions">
+              <button class="btn-icon-link btn-close-panel" type="button" title="Close Panel">✕</button>
+            </div>
           </div>
-        </div>
-        <div class="state-no-profile">
-          <div class="no-profile-icon">🛡️</div>
-          <h3 class="no-profile-title">No Payslip Profile Loaded</h3>
-          <p class="no-profile-desc">
-            Paylens calculates affordability from verified payslip take-home pay, not self-declared income.
-          </p>
-          <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;">
-            <button class="no-profile-btn btn-open-options" type="button">
-              Open Options & Onboard
-            </button>
-            <button class="retry-btn btn-quick-demo" type="button">
-              ⚡ Load Rahul (12 LPA Demo)
-            </button>
+          <div class="state-no-profile">
+            <div class="no-profile-icon">🛡️</div>
+            <h3 class="no-profile-title">No Payslip Profile Loaded</h3>
+            <p class="no-profile-desc">
+              Paylens calculates affordability from verified payslip take-home pay, not self-declared income.
+            </p>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;">
+              <button class="no-profile-btn btn-open-options" type="button">
+                Open Options & Onboard
+              </button>
+              <button class="retry-btn btn-quick-demo" type="button">
+                ⚡ Load Rahul (12 LPA Demo)
+              </button>
+            </div>
+          </div>
+          <div class="card-footer-dismiss">
+            <button class="btn-remove-section" type="button">✕ Remove from this page</button>
           </div>
         </div>
       </div>
+
+      <!-- Floating Trigger Button -->
+      <button class="paylens-floating-trigger ${this.isOpen ? 'trigger-active' : ''}" type="button" aria-label="Open Paylens Affordability Copilot">
+        <div class="floating-icon-wrapper">
+          <svg class="brand-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span class="status-pulse-dot setup"></span>
+        </div>
+        <span class="floating-title">Paylens Copilot</span>
+        <span class="floating-pill pill-setup">Setup Required</span>
+      </button>
     `;
 
+    this._bindCommonEvents();
+
     const openBtn = this.shadowRoot.querySelector('.btn-open-options');
-    if (openBtn && onOpenOptions) {
-      openBtn.addEventListener('click', onOpenOptions);
-    }
+    if (openBtn && onOpenOptions) openBtn.addEventListener('click', onOpenOptions);
 
     const demoBtn = this.shadowRoot.querySelector('.btn-quick-demo');
-    if (demoBtn && onLoadDemo) {
-      demoBtn.addEventListener('click', onLoadDemo);
-    }
+    if (demoBtn && onLoadDemo) demoBtn.addEventListener('click', onLoadDemo);
   }
 
   // ==========================================================================
   // State 3: Error
   // ==========================================================================
   renderError(message = 'Unable to evaluate affordability.', { onRetry } = {}) {
-    if (!this.shadowRoot) return;
+    if (!this.shadowRoot || this.isDismissed) return;
 
     this.shadowRoot.innerHTML = `
       ${this._getStyleTag()}
-      <div class="paylens-card">
-        <div class="card-header-brand">
-          <div class="brand-left">
-            <span class="brand-title">Paylens Copilot</span>
-            <span class="brand-pill" style="color: #f87171;">Notice</span>
+      
+      <!-- Collapsible Floating Panel -->
+      <div class="paylens-panel-wrapper ${this.isOpen ? 'panel-open' : 'panel-closed'}">
+        <div class="paylens-card">
+          <div class="card-header-brand">
+            <div class="brand-left">
+              <svg class="brand-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              <span class="brand-title">Paylens Copilot</span>
+              <span class="brand-pill" style="color: #f87171;">Notice</span>
+            </div>
+            <div class="brand-actions">
+              <button class="btn-icon-link btn-close-panel" type="button" title="Close Panel">✕</button>
+            </div>
+          </div>
+          <div class="state-error">
+            <h4 class="error-title">Evaluation Notice</h4>
+            <p class="error-desc">${message}</p>
+            <button class="retry-btn" type="button">Retry Check</button>
+          </div>
+          <div class="card-footer-dismiss">
+            <button class="btn-remove-section" type="button">✕ Remove from this page</button>
           </div>
         </div>
-        <div class="state-error">
-          <h4 class="error-title">Evaluation Notice</h4>
-          <p class="error-desc">${message}</p>
-          <button class="retry-btn" type="button">Retry Check</button>
-        </div>
       </div>
+
+      <!-- Floating Trigger Button -->
+      <button class="paylens-floating-trigger ${this.isOpen ? 'trigger-active' : ''}" type="button" aria-label="Open Paylens Affordability Copilot">
+        <div class="floating-icon-wrapper">
+          <svg class="brand-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span class="status-pulse-dot notice"></span>
+        </div>
+        <span class="floating-title">Paylens Copilot</span>
+        <span class="floating-pill pill-notice">Notice</span>
+      </button>
     `;
 
+    this._bindCommonEvents();
+
     const retryBtn = this.shadowRoot.querySelector('.retry-btn');
-    if (retryBtn && onRetry) {
-      retryBtn.addEventListener('click', onRetry);
-    }
+    if (retryBtn && onRetry) retryBtn.addEventListener('click', onRetry);
   }
 
   // ==========================================================================
-  // State 4: Full Verdict Breakdown (Strict Order per §8.6)
+  // State 4: Full Verdict Breakdown
   // ==========================================================================
-  renderVerdict(verdict, { onLanguageChange, onOpenOptions, currentLanguage = 'en' } = {}) {
-    if (!this.shadowRoot || !verdict) return;
+  renderVerdict(verdict, { onLanguageChange, onOpenOptions, onSelectOption, currentLanguage = 'en', listing = null, selectedOptionId = null } = {}) {
+    if (!this.shadowRoot || !verdict || this.isDismissed) return;
     this.currentVerdict = verdict;
     this.currentLanguage = currentLanguage;
+
+    // Payment Option Selector Pills
+    let paymentOptionsHtml = '';
+    const paymentOptions = listing?.payment_options || [];
+    if (paymentOptions.length > 1) {
+      const activeOptId = selectedOptionId || verdict.selected_option?.option_id || paymentOptions[0].option_id;
+      const pills = paymentOptions.map((opt) => {
+        const isSelected = opt.option_id === activeOptId;
+        const icon = opt.type === 'CASH' ? '💵' : (opt.type === 'NO_COST_EMI' ? '⚡' : '📅');
+        const costStr = opt.type === 'CASH'
+          ? PaylensCard.formatINR(opt.monthly_installment)
+          : `${PaylensCard.formatINR(opt.monthly_installment)}/mo`;
+
+        return `
+          <button class="option-pill ${isSelected ? 'active' : ''}" type="button" data-opt-id="${opt.option_id}" title="${opt.label}">
+            <span class="opt-pill-title">${icon} ${opt.label}</span>
+            <span class="opt-pill-amount">${costStr}</span>
+          </button>
+        `;
+      }).join('');
+
+      paymentOptionsHtml = `
+        <div class="payment-options-selector">
+          <span class="section-label-sm" style="margin-bottom: 6px; display: block;">Select Payment Plan to Evaluate:</span>
+          <div class="option-pills-row">
+            ${pills}
+          </div>
+        </div>
+      `;
+    }
 
     const level = (verdict.verdict_level || 'COMFORTABLE').toUpperCase();
     const badgeClass = level === 'COMFORTABLE'
@@ -261,137 +429,206 @@ export class PaylensCard {
 
     const bulletsHtml = bullets.map(b => `<li class="bullet-item">${b}</li>`).join('');
 
-    // Render Full Hierarchy
+    // Render Floating Launcher & Copilot Panel
     this.shadowRoot.innerHTML = `
       ${this._getStyleTag()}
-      <div class="paylens-card">
-        <!-- Brand Header -->
-        <div class="card-header-brand">
-          <div class="brand-left">
-            <svg class="brand-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
-            <span class="brand-title">Paylens Copilot</span>
-            <span class="brand-pill">Verified</span>
+
+      <!-- Collapsible Floating Copilot Panel -->
+      <div class="paylens-panel-wrapper ${this.isOpen ? 'panel-open' : 'panel-closed'}">
+        <div class="paylens-card">
+          <!-- Brand Header -->
+          <div class="card-header-brand">
+            <div class="brand-left">
+              <svg class="brand-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              <span class="brand-title">Paylens Copilot</span>
+              <span class="brand-pill">Verified</span>
+            </div>
+            <div class="brand-actions">
+              <button class="btn-icon-link btn-settings" type="button" title="Open Profile Settings">
+                ⚙️ Profile
+              </button>
+              <button class="btn-icon-link btn-close-panel" type="button" title="Minimize / Close Copilot Screen" aria-label="Close Copilot">
+                ✕
+              </button>
+            </div>
           </div>
-          <div class="brand-actions">
-            <button class="btn-icon-link btn-settings" type="button" title="Open Profile Settings">
-              ⚙️ Profile
+
+          <div class="card-body">
+            <!-- 0. Interactive Payment Option Selector (if options available) -->
+            ${paymentOptionsHtml}
+
+            <!-- 1. Badge & Headline Reason -->
+            <div class="verdict-header-section">
+              <div class="verdict-badge-row">
+                <span class="verdict-badge ${badgeClass}">${badgeLabel}</span>
+              </div>
+              <p class="headline-reason-text">${verdict.headline_reason || 'Affordability evaluation completed.'}</p>
+            </div>
+
+            <!-- 2. True Cost Box -->
+            <div class="true-cost-box">
+              <div class="rates-row">
+                <div class="rate-stat">
+                  <span class="rate-label">Effective Annual Rate (EAR)</span>
+                  <span class="rate-value ${hasHighApr ? 'highlight-red' : ''}">${ear}%</span>
+                </div>
+                <div class="rate-stat">
+                  <span class="rate-label">Nominal APR</span>
+                  <span class="rate-value">${nominal}%</span>
+                </div>
+              </div>
+              <div class="outflow-comparison">
+                <span>Total Outflow: <strong>${PaylensCard.formatINR(totalOutflow)}</strong></span>
+                <span class="markup-amount">Hidden Markup: +${PaylensCard.formatINR(hiddenMarkup)}</span>
+              </div>
+            </div>
+
+            <!-- High APR Alert Banner (Conditional) -->
+            ${hasHighApr ? `
+              <div class="high-apr-alert">
+                <span class="alert-icon">⚠️</span>
+                <div class="alert-content">
+                  <h4>High APR Financing Alert (${ear}% EAR)</h4>
+                  <p>Taking this No-Cost EMI forfeits cash discounts and incurs processing fees, resulting in <strong>+${PaylensCard.formatINR(hiddenMarkup)}</strong> in hidden markups vs cash upfront.</p>
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- 3. Impact Grid -->
+            <div class="impact-grid-section">
+              <span class="section-label-sm">Cash-Flow Impact</span>
+              <div class="impact-grid">
+                <div class="impact-card">
+                  <span class="impact-label">FOIR Debt Ratio</span>
+                  <span class="impact-value">${foirAfter}</span>
+                  <span class="impact-sub">From ${foirBefore}</span>
+                </div>
+                <div class="impact-card">
+                  <span class="impact-label">Free Cash Remaining</span>
+                  <span class="impact-value ${freeCashDanger ? 'impact-sub danger' : ''}">${freeCash}</span>
+                  <span class="impact-sub">Monthly buffer</span>
+                </div>
+                <div class="impact-card">
+                  <span class="impact-label">Emergency Runway</span>
+                  <span class="impact-value">${runway}m</span>
+                  <span class="impact-sub">Safety cushion</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. Stress Tests -->
+            ${stressHtml ? `
+              <div class="stress-tests-section">
+                <span class="section-label-sm">Financial Resilience Stress Tests</span>
+                ${stressHtml}
+              </div>
+            ` : ''}
+
+            <!-- 5. Smart Alternatives -->
+            ${altsHtml ? `
+              <div class="alternatives-section">
+                <span class="section-label-sm">Re-Scored Smart Alternatives</span>
+                ${altsHtml}
+              </div>
+            ` : ''}
+
+            <!-- 6. Regional Explanations -->
+            <div class="explanations-section">
+              <div class="lang-switch-row">
+                <span class="lang-switch-title">Copilot Explanation</span>
+                <div class="lang-pills">
+                  <button class="lang-pill ${currentLanguage === 'en' ? 'active' : ''}" data-lang="en">EN</button>
+                  <button class="lang-pill ${currentLanguage === 'hi' ? 'active' : ''}" data-lang="hi">HI</button>
+                  <button class="lang-pill ${currentLanguage === 'kn' ? 'active' : ''}" data-lang="kn">KN</button>
+                </div>
+              </div>
+              <ul class="bullets-list">
+                ${bulletsHtml}
+              </ul>
+            </div>
+
+            <!-- 7. Collapsible Assumptions Footer -->
+            <div class="assumptions-footer">
+              <button class="assumptions-toggle" type="button">
+                <span>ⓘ Calculation Heuristics & Disclaimer</span>
+                <span class="arrow">▼</span>
+              </button>
+              <div class="assumptions-content" hidden>
+                Calculated via bisection IRR solver (XIRR methodology per RBI guidelines). All numbers are mathematically grounded against verified payslip take-home income. Not financial advice.
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Bottom Dismiss Option -->
+          <div class="card-footer-dismiss">
+            <button class="btn-remove-section" type="button" title="Remove Paylens section from this page">
+              ✕ Remove from this page
             </button>
           </div>
-        </div>
-
-        <div class="card-body">
-          <!-- 1. Badge & Headline Reason -->
-          <div class="verdict-header-section">
-            <div class="verdict-badge-row">
-              <span class="verdict-badge ${badgeClass}">${badgeLabel}</span>
-            </div>
-            <p class="headline-reason-text">${verdict.headline_reason || 'Affordability evaluation completed.'}</p>
-          </div>
-
-          <!-- 2. True Cost Box -->
-          <div class="true-cost-box">
-            <div class="rates-row">
-              <div class="rate-stat">
-                <span class="rate-label">Effective Annual Rate (EAR)</span>
-                <span class="rate-value ${hasHighApr ? 'highlight-red' : ''}">${ear}%</span>
-              </div>
-              <div class="rate-stat">
-                <span class="rate-label">Nominal APR</span>
-                <span class="rate-value">${nominal}%</span>
-              </div>
-            </div>
-            <div class="outflow-comparison">
-              <span>Total Outflow: <strong>${PaylensCard.formatINR(totalOutflow)}</strong></span>
-              <span class="markup-amount">Hidden Markup: +${PaylensCard.formatINR(hiddenMarkup)}</span>
-            </div>
-          </div>
-
-          <!-- High APR Alert Banner (Conditional) -->
-          ${hasHighApr ? `
-            <div class="high-apr-alert">
-              <span class="alert-icon">⚠️</span>
-              <div class="alert-content">
-                <h4>High APR Financing Alert (${ear}% EAR)</h4>
-                <p>Taking this No-Cost EMI forfeits cash discounts and incurs processing fees, resulting in <strong>+${PaylensCard.formatINR(hiddenMarkup)}</strong> in hidden markups vs cash upfront.</p>
-              </div>
-            </div>
-          ` : ''}
-
-          <!-- 3. Impact Grid -->
-          <div class="impact-grid-section">
-            <span class="section-label-sm">Cash-Flow Impact</span>
-            <div class="impact-grid">
-              <div class="impact-card">
-                <span class="impact-label">FOIR Debt Ratio</span>
-                <span class="impact-value">${foirAfter}</span>
-                <span class="impact-sub">From ${foirBefore}</span>
-              </div>
-              <div class="impact-card">
-                <span class="impact-label">Free Cash Remaining</span>
-                <span class="impact-value ${freeCashDanger ? 'impact-sub danger' : ''}">${freeCash}</span>
-                <span class="impact-sub">Monthly buffer</span>
-              </div>
-              <div class="impact-card">
-                <span class="impact-label">Emergency Runway</span>
-                <span class="impact-value">${runway}m</span>
-                <span class="impact-sub">Safety cushion</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 4. Stress Tests -->
-          ${stressHtml ? `
-            <div class="stress-tests-section">
-              <span class="section-label-sm">Financial Resilience Stress Tests</span>
-              ${stressHtml}
-            </div>
-          ` : ''}
-
-          <!-- 5. Smart Alternatives -->
-          ${altsHtml ? `
-            <div class="alternatives-section">
-              <span class="section-label-sm">Re-Scored Smart Alternatives</span>
-              ${altsHtml}
-            </div>
-          ` : ''}
-
-          <!-- 6. Regional Explanations -->
-          <div class="explanations-section">
-            <div class="lang-switch-row">
-              <span class="lang-switch-title">Copilot Explanation</span>
-              <div class="lang-pills">
-                <button class="lang-pill ${currentLanguage === 'en' ? 'active' : ''}" data-lang="en">EN</button>
-                <button class="lang-pill ${currentLanguage === 'hi' ? 'active' : ''}" data-lang="hi">HI</button>
-                <button class="lang-pill ${currentLanguage === 'kn' ? 'active' : ''}" data-lang="kn">KN</button>
-              </div>
-            </div>
-            <ul class="bullets-list">
-              ${bulletsHtml}
-            </ul>
-          </div>
-
-          <!-- 7. Collapsible Assumptions Footer -->
-          <div class="assumptions-footer">
-            <button class="assumptions-toggle" type="button">
-              <span>ⓘ Calculation Heuristics & Disclaimer</span>
-              <span class="arrow">▼</span>
-            </button>
-            <div class="assumptions-content" hidden>
-              Calculated via bisection IRR solver (XIRR methodology per RBI guidelines). All numbers are mathematically grounded against verified payslip take-home income. Not financial advice.
-            </div>
-          </div>
-
         </div>
       </div>
+
+      <!-- Floating Trigger Button (Always visible unless dismissed) -->
+      <button class="paylens-floating-trigger ${this.isOpen ? 'trigger-active' : ''}" type="button" aria-label="Open Paylens Affordability Copilot">
+        <div class="floating-icon-wrapper">
+          <svg class="brand-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span class="status-pulse-dot ${level.toLowerCase()}"></span>
+        </div>
+        <span class="floating-title">Paylens Copilot</span>
+        <span class="floating-pill pill-${level.toLowerCase()}">${badgeIcon} ${level}</span>
+      </button>
     `;
 
     // Bind event listeners inside shadow DOM
-    this._bindEvents({ onLanguageChange, onOpenOptions });
+    this._bindCommonEvents();
+    this._bindVerdictEvents({ onLanguageChange, onOpenOptions, onSelectOption });
   }
 
-  _bindEvents({ onLanguageChange, onOpenOptions } = {}) {
+  _bindCommonEvents() {
+    // Floating Trigger Button toggle
+    const trigger = this.shadowRoot.querySelector('.paylens-floating-trigger');
+    if (trigger) {
+      trigger.addEventListener('click', () => {
+        this.togglePanel();
+      });
+    }
+
+    // Panel Close Button
+    const closeBtn = this.shadowRoot.querySelector('.btn-close-panel');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.closePanel();
+      });
+    }
+
+    // Remove from Page Button
+    const removeBtn = this.shadowRoot.querySelector('.btn-remove-section');
+    if (removeBtn) {
+      removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.dismiss();
+      });
+    }
+  }
+
+  _bindVerdictEvents({ onLanguageChange, onOpenOptions, onSelectOption } = {}) {
+    // Option Pills (Interactive Payment Plan Switching)
+    const optionPills = this.shadowRoot.querySelectorAll('.option-pill');
+    optionPills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        const optId = pill.dataset.optId;
+        if (optId && onSelectOption) {
+          onSelectOption(optId);
+        }
+      });
+    });
+
     // Settings Button
     const settingsBtn = this.shadowRoot.querySelector('.btn-settings');
     if (settingsBtn && onOpenOptions) {
