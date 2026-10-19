@@ -874,6 +874,53 @@
   border-bottom: 1px solid #f1f5f9;
 }
 
+.bank-selector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.bank-dropdown-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bank-select-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.bank-select {
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #1e293b;
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.bank-select:hover {
+  background: #ffffff;
+  border-color: #3b82f6;
+}
+
+.bank-select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
 .option-pills-row {
   display: flex;
   gap: 8px;
@@ -929,5 +976,90 @@
 
 .option-pill.active .opt-pill-amount {
   color: #1e3a8a;
+}
+
+/* ============================================================================
+   Eligibility Notice Banner (Debit Pre-approval & BNPL KYC Guidance)
+   ============================================================================ */
+.eligibility-notice-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-left: 3px solid #0d9488;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-top: 8px;
+}
+
+.eligibility-icon {
+  font-size: 0.875rem;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.eligibility-text {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #134e4a;
+  line-height: 1.4;
+}
+
+/* ============================================================================
+   Currency Classification Banner Styles
+   ============================================================================ */
+.currency-classification-banner {
+  background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%);
+  border: 1px solid #7dd3fc;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.currency-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.currency-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #0284c7;
+  color: #ffffff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+}
+
+.currency-orig-price {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: #0369a1;
+}
+
+.currency-arrow {
+  color: #0284c7;
+  font-weight: 800;
+  font-size: 0.8125rem;
+}
+
+.currency-inr-tag {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.currency-fx-sub {
+  font-size: 0.6875rem;
+  color: #475569;
+  line-height: 1.35;
 }
 

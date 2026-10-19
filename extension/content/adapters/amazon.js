@@ -1,20 +1,5 @@
-/**
- * extension/content/adapters/amazon.js
- * Storefront DOM Adapter for Amazon India (amazon.in) and Amazon International.
- * Reverse-engineered from Buyhatke Chrome extension architecture (v5.1.170_0 / pos: 63):
- * - Cascading resilient selectors for ASIN, Title, Multi-part Prices, and MRP
- * - OfferListingId (OLID) extraction
- * - Instant bank discounts & voucher parsing
- * - Live InEMI rates & Offer Application Secondary View table extraction
- * - Resilient fallback to verified Indian bank schemes with documented charges
- *
- * Implements Paylens DOM Adapter Contract:
- * - matches(url): boolean
- * - extract(document): Promise<Listing | null> | (Listing | null)
- * - selectedOptionId(document): string | null
- * - mountPoint(document): Element | null
- * - observe(document, onChange): () => void
- */
+import { detectCurrency, classifyPrice, parsePriceFromText } from '../currency.js';
+import { UniversalEmiExtractor } from '../emi_extractor.js';
 
 function calculateEmiInstallment(principal, annualRatePercent, months) {
   if (months <= 1 || annualRatePercent <= 0) {
@@ -25,25 +10,12 @@ function calculateEmiInstallment(principal, annualRatePercent, months) {
   return Math.round(emi * 100) / 100;
 }
 
-function parsePriceFromText(text) {
-  if (!text) return 0;
-  const match = text.match(/(?:₹|Rs\.?|INR|\$)?\s*([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]+)?|[0-9]+(?:\.[0-9]+)?)/);
-  if (match && match[1]) {
-    const clean = match[1].replace(/,/g, '');
-    const val = parseFloat(clean);
-    return isNaN(val) ? 0 : val;
-  }
-  const clean = text.replace(/[^0-9.]/g, '');
-  const val = parseFloat(clean);
-  return isNaN(val) ? 0 : val;
-}
-
 // In-memory cache for live InEMI results to prevent redundant network fetches
 const emiCache = new Map();
 
 /**
  * Extracts ASIN using Buyhatke's cascading priority:
- * input#ASIN -> data-csa-c-item-id -> data-asin -> URL regex -> canonical -> query params
+ * input#ASIN -> data-csa-c-item-id -> data-asin -> URL regex -> canonical -> query params -> meta
  */
 function extractAsin(doc) {
   if (!doc) return null;
@@ -68,15 +40,15 @@ function extractAsin(doc) {
     if (val && val.trim().length === 10) return val.trim();
   }
 
-  // 3. URL regex
+  // 3. URL regex (standard /dp/, short /d/, /gp/product/, /gp/aw/d/, /asin/)
   const url = (doc.defaultView?.location?.href || (typeof window !== 'undefined' ? window.location.href : '') || '');
-  const urlMatch = url.match(/(?:\/dp\/|\/gp\/product\/|\/gp\/aw\/d\/)([A-Z0-9]{10})/i);
+  const urlMatch = url.match(/(?:\/dp\/|\/d\/|\/gp\/product\/|\/gp\/aw\/d\/|\/exec\/obidos\/ASIN\/|\/asin\/)([A-Z0-9]{10})/i);
   if (urlMatch) return urlMatch[1];
 
   // 4. Canonical link
   const canonical = doc.querySelector('link[rel="canonical"]');
   if (canonical && canonical.href) {
-    const m = canonical.href.match(/(?:\/dp\/|\/gp\/product\/|\/gp\/aw\/d\/)([A-Z0-9]{10})/i);
+    const m = canonical.href.match(/(?:\/dp\/|\/d\/|\/gp\/product\/|\/gp\/aw\/d\/|\/asin\/)([A-Z0-9]{10})/i);
     if (m) return m[1];
   }
 
@@ -86,6 +58,16 @@ function extractAsin(doc) {
     const pd = u.searchParams.get('pd_rd_i') || u.searchParams.get('asin');
     if (pd && pd.trim().length === 10) return pd.trim();
   } catch (_) {}
+
+  // 6. Meta tag fallback
+  const metaAsin = doc.querySelector('meta[name="asin"], meta[property="og:asin"]');
+  if (metaAsin && metaAsin.content && metaAsin.content.trim().length === 10) {
+    return metaAsin.content.trim();
+  }
+
+  // 7. General 10-char ASIN slug regex from URL
+  const genericMatch = url.match(/(?:[/?&]|^)([B0-9][A-Z0-9]{9})(?:[/?&]|$)/i);
+  if (genericMatch) return genericMatch[1];
 
   return null;
 }
@@ -107,54 +89,91 @@ function extractTitle(doc) {
   for (const sel of selectors) {
     const el = doc.querySelector(sel);
     if (el) {
-      const val = el.getAttribute('content') || el.innerText || el.textContent;
+      const val = el.tagName === 'META' ? el.getAttribute('content') : (el.innerText || el.textContent);
       if (val && val.trim().length > 1) {
-        return val.trim().replace(/\s*:\s*Amazon\.in.*?$/i, '').trim();
+        return val.trim()
+          .replace(/\s*:\s*Amazon\..*?$/i, '')
+          .replace(/^Amazon\..*?:\s*/i, '')
+          .replace(/^Buy\s+/i, '')
+          .trim();
       }
     }
   }
   if (doc.title) {
-    return doc.title.replace(/\s*:\s*Amazon\.in.*?$/i, '').replace(/^Amazon\.in\s*:\s*/i, '').trim();
+    return doc.title
+      .replace(/\s*:\s*Amazon\..*?$/i, '')
+      .replace(/^Amazon\..*?:\s*/i, '')
+      .replace(/^Buy\s+/i, '')
+      .trim();
   }
   return 'Amazon Product';
 }
 
 /**
  * Extracts Selling Price and MRP (Basis Price)
- * Combines .a-price-whole and .a-price-fraction for precise currency amount
+ * Combines .a-offscreen, .a-price-whole/.a-price-fraction, JSON-LD, and Meta tags.
  */
 function extractPrice(doc) {
   if (!doc) return { listPrice: 0, mrp: 0 };
   let listPrice = 0;
   let mrp = 0;
 
-  // 1. Buyhatke Multi-part Whole + Fraction selector
-  const priceToPay = doc.querySelector('.centerColAlign .a-price.priceToPay, #corePriceDisplay_desktop_feature_div .a-price.priceToPay, #corePrice_desktop .a-price.priceToPay');
-  if (priceToPay) {
-    const whole = priceToPay.querySelector('.a-price-whole');
-    const frac = priceToPay.querySelector('.a-price-fraction');
-    if (whole) {
-      const wholeClean = whole.innerText.replace(/[^0-9]/g, '');
-      const fracClean = frac ? frac.innerText.replace(/[^0-9]/g, '') : '00';
-      const num = parseFloat(`${wholeClean}.${fracClean}`);
-      if (!isNaN(num) && num > 0) {
-        listPrice = num;
+  // 1. Direct parse from priceToPay or prominent price container with .a-offscreen
+  const priceToPaySelectors = [
+    '.priceToPay .a-offscreen',
+    '#corePriceDisplay_desktop_feature_div .a-price.priceToPay .a-offscreen',
+    '#corePrice_desktop .a-price.priceToPay .a-offscreen',
+    '#apex_desktop .a-price.priceToPay .a-offscreen',
+    '#corePrice_feature_div .a-price .a-offscreen',
+    '#apex_desktop .a-price .a-offscreen',
+    '.priceToPay',
+    '.a-price.priceToPay'
+  ];
+
+  for (const sel of priceToPaySelectors) {
+    const el = doc.querySelector(sel);
+    if (el) {
+      const val = parsePriceFromText(el.innerText || el.textContent);
+      if (val > 0) {
+        listPrice = val;
+        break;
       }
     }
   }
 
-  // 2. Cascading single-element selectors
+  // 2. Buyhatke Multi-part Whole + Fraction selector
+  if (listPrice <= 0) {
+    const priceToPay = doc.querySelector('.priceToPay, .a-price.priceToPay, #corePriceDisplay_desktop_feature_div .a-price, #corePrice_desktop .a-price, #apex_desktop .a-price, #centerCol .a-price');
+    if (priceToPay) {
+      const whole = priceToPay.querySelector('.a-price-whole');
+      const frac = priceToPay.querySelector('.a-price-fraction');
+      if (whole) {
+        const wholeClean = (whole.innerText || whole.textContent || '').replace(/[^0-9]/g, '');
+        const fracClean = (frac ? (frac.innerText || frac.textContent || '') : '00').replace(/[^0-9]/g, '') || '00';
+        if (wholeClean) {
+          const num = parseFloat(`${wholeClean}.${fracClean}`);
+          if (!isNaN(num) && num > 0) {
+            listPrice = num;
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Cascading single-element selectors
   if (listPrice <= 0) {
     const selectors = [
       '#corePriceDisplay_desktop_feature_div .a-price .a-offscreen',
       '#corePrice_desktop .a-price .a-offscreen',
       '.a-price.aok-align-center .a-offscreen',
       '#apex_desktop .a-price .a-offscreen',
+      '#corePrice_feature_div .a-price .a-offscreen',
       '#priceblock_dealprice',
       '#priceblock_ourprice',
       '#price_inside_buybox',
       'span.a-price span.a-offscreen',
-      '.a-price .a-offscreen'
+      '.a-price .a-offscreen',
+      '#priceblock_saleprice'
     ];
     for (const sel of selectors) {
       const el = doc.querySelector(sel);
@@ -168,13 +187,43 @@ function extractPrice(doc) {
     }
   }
 
-  // 3. Extract MRP / Basis Price
+  // 4. Schema.org JSON-LD Fallback
+  if (listPrice <= 0) {
+    const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
+    for (const script of scripts) {
+      try {
+        const data = JSON.parse(script.textContent || '{}');
+        const prod = data['@type'] === 'Product' ? data : (Array.isArray(data['@graph']) ? data['@graph'].find(i => i && i['@type'] === 'Product') : null);
+        if (prod && prod.offers) {
+          const offers = Array.isArray(prod.offers) ? prod.offers[0] : prod.offers;
+          const p = parseFloat(offers?.price || offers?.lowPrice || '0');
+          if (p > 0) {
+            listPrice = p;
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
+  // 5. OpenGraph or Twitter price meta tag fallback
+  if (listPrice <= 0) {
+    const metaPrice = doc.querySelector('meta[property="product:price:amount"], meta[name="twitter:data1"]');
+    if (metaPrice && metaPrice.content) {
+      const p = parsePriceFromText(metaPrice.content);
+      if (p > 0) listPrice = p;
+    }
+  }
+
+  // 6. Extract MRP / Basis Price
   const mrpSelectors = [
     '.basisPrice .a-price.a-text-price span.a-offscreen',
     '#corePriceDisplay_desktop_feature_div .a-text-price span.a-offscreen',
     '#corePrice_desktop .a-text-price span.a-offscreen',
+    '#apex_desktop .a-text-price span.a-offscreen',
     '#listPrice',
-    'span.a-price.a-text-price span.a-offscreen'
+    'span.a-price.a-text-price span.a-offscreen',
+    '.a-text-price span.a-offscreen'
   ];
   for (const sel of mrpSelectors) {
     const el = doc.querySelector(sel);
@@ -246,80 +295,20 @@ function extractInstantDiscounts(doc, listPrice) {
  */
 function parseInEmiHtml(htmlText, listPrice, cashDiscount) {
   if (!htmlText || typeof htmlText !== 'string') return [];
-  const options = [];
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlText, 'text/html');
-
-    const knownBanks = [
-      { key: 'hdfc', name: 'HDFC Bank' },
-      { key: 'icici', name: 'ICICI Bank' },
-      { key: 'sbi', name: 'SBI Card' },
-      { key: 'axis', name: 'Axis Bank' },
-      { key: 'kotak', name: 'Kotak Bank' },
-      { key: 'onecard', name: 'OneCard' },
-      { key: 'amex', name: 'American Express' },
-      { key: 'rbl', name: 'RBL Bank' },
-      { key: 'bob', name: 'Bank of Baroda' },
-      { key: 'indusind', name: 'IndusInd Bank' }
-    ];
-
-    const rows = doc.querySelectorAll('tr, .a-row, li');
-    let activeBank = 'Bank';
-
-    for (const row of rows) {
-      const text = row.innerText || row.textContent || '';
-      for (const b of knownBanks) {
-        if (text.toLowerCase().includes(b.name.toLowerCase()) || text.toLowerCase().includes(b.key)) {
-          activeBank = b.name;
-          break;
-        }
-      }
-
-      const tenureMatch = text.match(/(\d+)\s*(?:months|month|m)\b/i);
-      const priceMatch = text.match(/(?:₹|Rs\.?)\s*([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]+)?|[0-9]+(?:\.[0-9]+)?)/i);
-
-      if (tenureMatch && priceMatch) {
-        const tenure = parseInt(tenureMatch[1], 10);
-        if (tenure >= 3 && tenure <= 36) {
-          const installment = parsePriceFromText(priceMatch[1]);
-          if (installment > 0 && installment < listPrice) {
-            const isNoCost = /no\s*cost/i.test(text) || /interest\s*free/i.test(text) || (Math.abs((installment * tenure) - listPrice) < 5);
-            const rateMatch = text.match(/(\d+(?:\.\d+)?)\s*%/);
-            const statedRate = isNoCost ? 0.0 : (rateMatch ? parseFloat(rateMatch[1]) : 14.0);
-
-            const bankSlug = activeBank.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const optId = isNoCost ? `nocost_${bankSlug}_${tenure}m` : `std_${bankSlug}_${tenure}m`;
-
-            if (!options.some(o => o.option_id === optId)) {
-              options.push({
-                option_id: optId,
-                type: isNoCost ? 'NO_COST_EMI' : 'STANDARD_EMI',
-                label: isNoCost
-                  ? `${activeBank} No-Cost EMI (${tenure} Months)`
-                  : `${activeBank} Standard EMI (${tenure} Months @ ${statedRate}% APR)`,
-                tenure_months: tenure,
-                monthly_installment: installment,
-                upfront_downpayment: 0.0,
-                processing_fee: 199.0,
-                lost_cash_discount: cashDiscount,
-                stated_interest_rate: statedRate
-              });
-            }
-          }
-        }
-      }
-    }
+    return UniversalEmiExtractor.parseTableRowsFromContainer(doc.body, listPrice, cashDiscount, 199.0);
   } catch (err) {
     console.warn('[Paylens AmazonAdapter] InEMI HTML parse error:', err);
+    return [];
   }
-  return options;
 }
 
 /**
  * Fetches live Amazon InEMI table via background service worker proxy
  */
-async function fetchLiveAmazonEmi(asin, olid, listPrice, cashDiscount) {
+async function fetchLiveAmazonEmi(asin, olid, listPrice, cashDiscount, doc = null) {
   if (!asin || typeof chrome === 'undefined' || !chrome.runtime?.id || !chrome.runtime?.sendMessage) {
     return [];
   }
@@ -329,7 +318,27 @@ async function fetchLiveAmazonEmi(asin, olid, listPrice, cashDiscount) {
     return emiCache.get(cacheKey);
   }
 
-  const inEmiUrl = `https://www.amazon.in/gp/product/ajax-handlers/inemi-rates.html?asin=${asin}&ref_=dp_inemi`;
+  let inEmiUrl = null;
+  if (doc) {
+    const popoverLink = doc.querySelector('#inemi-popover-link, a[data-a-popover*="inemi"], a[data-a-popover*="rates"]');
+    if (popoverLink) {
+      const popoverAttr = popoverLink.getAttribute('data-a-popover');
+      if (popoverAttr) {
+        try {
+          const parsed = JSON.parse(popoverAttr);
+          if (parsed.url) {
+            const origin = (doc.defaultView?.location?.origin || (typeof window !== 'undefined' ? window.location.origin : 'https://www.amazon.in'));
+            inEmiUrl = new URL(parsed.url, origin).href;
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
+  if (!inEmiUrl) {
+    const origin = (doc?.defaultView?.location?.origin || (typeof window !== 'undefined' ? window.location.origin : 'https://www.amazon.in'));
+    inEmiUrl = `${origin}/gp/product/ajax-handlers/inemi-rates.html?asin=${asin}&ref_=dp_inemi`;
+  }
 
   try {
     const res = await new Promise((resolve) => {
@@ -455,9 +464,22 @@ export const AmazonAdapter = {
   matches(url = (typeof window !== 'undefined' ? window.location.href : '')) {
     if (!url) return false;
     const u = url.toLowerCase();
-    const isAmazonHost = u.includes('amazon.in') || u.includes('amazon.com') || u.includes('amazon.');
-    const isProductPage = u.includes('/dp/') || u.includes('/gp/product/') || u.includes('/gp/aw/d/');
-    return isAmazonHost && isProductPage;
+    const isAmazonHost = u.includes('amazon.in') || u.includes('amazon.com') || u.includes('amazon.') || u.includes('amzn.') || (typeof document !== 'undefined' && (document.domain || '').includes('amazon'));
+    if (!isAmazonHost) return false;
+
+    const isProductPage = u.includes('/dp/') || u.includes('/gp/product/') || u.includes('/gp/aw/d/') ||
+                          u.includes('/d/') || u.includes('/product/') || u.includes('/deal/') ||
+                          u.includes('/asin/') || u.includes('?asin=') || u.includes('&asin=') ||
+                          u.includes('pd_rd_i=') || /\/(dp|d)\/[a-z0-9]{10}/i.test(u);
+    if (isProductPage) return true;
+
+    // Check DOM if available (for SPA transitions without full URL change)
+    if (typeof document !== 'undefined') {
+      if (document.querySelector('input#ASIN, input[name="ASIN"], #productTitle, #add-to-cart-button, #corePriceDisplay_desktop_feature_div, #apex_desktop, #inemi_feature_div')) {
+        return true;
+      }
+    }
+    return false;
   },
 
   /**
@@ -474,10 +496,19 @@ export const AmazonAdapter = {
       const title = extractTitle(doc);
 
       // 3. Multi-part Price and MRP
-      const { listPrice } = extractPrice(doc);
-      if (listPrice <= 0) {
+      const { listPrice: rawListPrice } = extractPrice(doc);
+      if (rawListPrice <= 0) {
         return null;
       }
+
+      // Currency Detection & Classification
+      const symbolEl = doc.querySelector('.a-price-symbol');
+      const sampleSymbol = symbolEl ? symbolEl.innerText.trim() : '';
+      const pageUrl = (doc.defaultView?.location?.href || (typeof window !== 'undefined' ? window.location.href : ''));
+      const detectedCurrency = detectCurrency(doc, sampleSymbol, pageUrl);
+      const classification = classifyPrice(rawListPrice, detectedCurrency);
+
+      const listPrice = classification.priceInINR;
 
       // 4. OfferListingID
       const olid = extractOlid(doc);
@@ -491,7 +522,10 @@ export const AmazonAdapter = {
       }
 
       // 6. Instant Bank Discounts & Coupons
-      const cashDiscount = extractInstantDiscounts(doc, listPrice);
+      const rawCashDiscount = extractInstantDiscounts(doc, rawListPrice);
+      const cashDiscount = classification.isConverted
+        ? Math.round(rawCashDiscount * classification.exchangeRate * 100) / 100
+        : rawCashDiscount;
       const effectiveCash = Math.max(0, listPrice - cashDiscount);
 
       // 7. Detect No-Cost EMI availability indicators
@@ -499,18 +533,27 @@ export const AmazonAdapter = {
       const hasNoCostEmi = pageText.includes('No Cost EMI') ||
                            doc.querySelector('#inemi_feature_div, a[href*="inemi"]') !== null;
 
-      // 8. Fetch live InEMI options or build verified fallback schedules
-      const liveOptions = await fetchLiveAmazonEmi(productId, olid, listPrice, cashDiscount);
+      // 8. Fetch live InEMI options, or extract via UniversalEmiExtractor, or build verified fallback schedules
+      let liveOptions = await fetchLiveAmazonEmi(productId, olid, listPrice, cashDiscount, doc);
+      if (!liveOptions || liveOptions.length === 0) {
+        liveOptions = await UniversalEmiExtractor.extract(doc, listPrice, cashDiscount, 'Amazon');
+      }
       let paymentOptions = [];
+
+      const cashLabel = classification.isConverted
+        ? `Full Payment Upfront (${classification.currencySymbol}${classification.originalPrice.toLocaleString('en-US')} ⇄ ₹${listPrice.toLocaleString('en-IN')})`
+        : (cashDiscount > 0
+          ? `Full Payment (Includes ₹${cashDiscount.toLocaleString('en-IN')} Bank Discount)`
+          : 'Full Payment Upfront');
 
       if (liveOptions && liveOptions.length > 0) {
         // Prepend Cash Full option
         const cashOption = {
           option_id: 'cash_full',
+          bank_key: 'cash',
+          bank_name: 'Cash / UPI',
           type: 'CASH',
-          label: cashDiscount > 0
-            ? `Full Payment (Includes ₹${cashDiscount.toLocaleString('en-IN')} Bank Discount)`
-            : 'Full Payment Upfront',
+          label: cashLabel,
           tenure_months: 1,
           monthly_installment: effectiveCash,
           upfront_downpayment: 0.0,
@@ -537,6 +580,11 @@ export const AmazonAdapter = {
         title: title,
         category: category,
         retailer: 'Amazon',
+        currency: classification.currency,
+        currency_symbol: classification.currencySymbol,
+        original_price: classification.originalPrice,
+        exchange_rate: classification.exchangeRate,
+        currency_notice: classification.bannerNotice,
         upfront_cash_price: listPrice,
         cash_discount: cashDiscount,
         effective_cash_price: effectiveCash,
@@ -549,14 +597,16 @@ export const AmazonAdapter = {
   },
 
   /**
-   * Default selected option ID (prefers 6M No-Cost EMI if available, else Cash).
+   * Default selected option ID (prefers 6M No-Cost EMI if available, else standard HDFC 3M).
    */
   selectedOptionId(doc) {
-    const pageText = (doc && doc.body ? doc.body.innerText : '');
-    if (pageText.includes('No Cost EMI') || (doc && doc.querySelector && doc.querySelector('#inemi_feature_div') !== null)) {
-      return 'nocost_6m';
+    const offerContainers = doc ? doc.querySelectorAll('#item_offers_list, #sopp_feature_div, .offers-items, #inemi_feature_div') : [];
+    for (const c of offerContainers) {
+      if (/no\s*cost\s*emi/i.test(c.innerText || '')) {
+        return 'nocost_6m';
+      }
     }
-    return 'cash_full';
+    return 'std_hdfc_3m';
   },
 
   /**
@@ -573,8 +623,12 @@ export const AmazonAdapter = {
         '#inemi_feature_div',
         '#corePriceDisplay_desktop_feature_div',
         '#corePrice_desktop',
+        '#corePrice_feature_div',
+        '#apex_desktop',
         '#desktop_buybox',
-        '#centerCol'
+        '#buybox',
+        '#centerCol',
+        '#dp-container'
       ];
 
       for (const sel of targets) {
@@ -585,7 +639,7 @@ export const AmazonAdapter = {
           slot.style.margin = '16px 0';
           slot.style.width = '100%';
 
-          if (sel === '#centerCol') {
+          if (sel === '#centerCol' || sel === '#dp-container') {
             el.appendChild(slot);
           } else {
             el.parentNode.insertBefore(slot, el.nextSibling);
@@ -594,10 +648,10 @@ export const AmazonAdapter = {
         }
       }
 
-      return null;
+      return doc.body || null;
     } catch (err) {
       console.warn('[Paylens AmazonAdapter] Error locating mountPoint:', err);
-      return null;
+      return doc?.body || null;
     }
   },
 
@@ -623,7 +677,7 @@ export const AmazonAdapter = {
           const stateKey = listing ? `${listing.product_id}_${listing.upfront_cash_price}_${listing.cash_discount}` : '';
           if (stateKey && stateKey !== lastStateKey) {
             lastStateKey = stateKey;
-            onChange({ productId: listing.product_id, optionId: 'nocost_6m' });
+            onChange({ productId: listing.product_id, optionId: AmazonAdapter.selectedOptionId(doc) });
           }
         } catch (_) {}
       }, 250);

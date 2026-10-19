@@ -1,17 +1,12 @@
 /**
  * extension/content/content_loader.js
- * Chrome MV3 ES Module Loader for Paylens Content Script.
- * Dynamically imports modular content.js into the host page context.
+ * Legacy fallback content script.
+ * Chrome MV3 now loads content.bundle.js directly from manifest.json.
  */
 
-(async function loadPaylensModularContentScript() {
-  try {
-    if (typeof chrome === 'undefined' || !chrome.runtime?.id) return;
-    const src = chrome.runtime.getURL('content/content.js');
-    await import(src);
-  } catch (err) {
-    if (!err?.message?.includes('Extension context invalidated')) {
-      console.error('[Paylens Loader] Error dynamically importing content.js:', err);
-    }
+(function loadPaylensScript() {
+  // Graceful no-op: content.bundle.js is directly injected by Chrome MV3
+  if (typeof window !== 'undefined') {
+    window.__paylens_loader_ready = true;
   }
 })();

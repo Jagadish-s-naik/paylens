@@ -598,10 +598,11 @@ export function resolveMockVerdict({ productId = "", optionId = "", profileId = 
   const isVikram = profId.includes("vikram");
   const isRahul = profId.includes("rahul") || (!isAmit && !isVikram);
 
+  const titleText = (listing?.title || "").toLowerCase();
   const isCash = optId.includes("cash") || optId === "cash_full";
-  const isSony = pid.includes("sony") || pid.includes("wh1000xm5");
-  const isIphone = pid.includes("iphone");
-  const isLaptop = pid.includes("laptop") || pid.includes("rog");
+  const isSony = pid.includes("sony") || pid.includes("wh1000xm5") || titleText.includes("sony") || titleText.includes("wh-1000");
+  const isIphone = pid.includes("iphone") || titleText.includes("iphone") || titleText.includes("apple");
+  const isLaptop = pid.includes("laptop") || pid.includes("rog") || titleText.includes("laptop") || titleText.includes("macbook") || titleText.includes("strix");
   const isMockStore = !listing || listing.retailer === "MockStore";
 
   // =========================================================================
@@ -773,26 +774,58 @@ export function resolveMockVerdict({ productId = "", optionId = "", profileId = 
     headlineReason = `Budget-safe (${(foirAfter * 100).toFixed(1)}% FOIR), but financing costs ${ear}% EAR markup (₹${Math.round(hiddenMarkup).toLocaleString('en-IN')} lost).`;
   }
 
+  const isConverted = Boolean(listing?.currency && listing.currency !== 'INR');
+  const currencyCode = listing?.currency || 'INR';
+  const currencySymbol = listing?.currency_symbol || '₹';
+  const originalPrice = listing?.original_price !== undefined ? Number(listing.original_price) : cashPrice;
+  const exchangeRate = listing?.exchange_rate !== undefined ? Number(listing.exchange_rate) : 1.0;
+  const currencyNotice = listing?.currency_notice || (isConverted
+    ? `Classified as ${currencyCode} (${currencySymbol}${originalPrice.toLocaleString('en-US')}) • Converted to ₹${Math.round(cashPrice).toLocaleString('en-IN')} INR (FX Rate: ₹${exchangeRate}/${currencyCode})`
+    : '');
+
+  if (isConverted && headlineReason) {
+    headlineReason = `[${currencyCode} ${currencySymbol}${originalPrice.toLocaleString('en-US')} ⇄ ₹${Math.round(cashPrice).toLocaleString('en-IN')}] ${headlineReason}`;
+  }
+
+  const explanationBullets = isConverted
+    ? [
+        `Identified and classified store currency as ${currencyCode} (${currencySymbol}${originalPrice.toLocaleString('en-US')}). Converted to ₹${Math.round(cashPrice).toLocaleString('en-IN')} INR at ₹${exchangeRate.toFixed(2)}/${currencyCode} for Indian payslip evaluation.`,
+        isCash
+          ? `Cash payment of ₹${Math.round(cashPrice).toLocaleString('en-IN')} leaves an emergency cushion of ${runwayAfter.toFixed(1)} months.`
+          : `Financing carries a hidden ${ear}% Effective Annual Rate (EAR) vs upfront payment.`
+      ]
+    : null;
+
   return {
     verdict_level: verdictLevel,
     tier: verdictLevel,
     badge: badge,
     affordability_score: score,
     headline_reason: headlineReason,
+    currency: currencyCode,
+    currency_symbol: currencySymbol,
+    original_price: originalPrice,
+    exchange_rate: exchangeRate,
+    currency_notice: currencyNotice,
+    is_converted: isConverted,
     selected_option: {
       option_id: optId || (isCash ? "cash_full" : "emi_option"),
-      type: isCash ? "CASH" : (optId.includes("nocost") ? "NO_COST_EMI" : "STANDARD_EMI"),
-      label: isCash ? "Full Payment" : (optId.includes("nocost") ? `No-Cost EMI (${tenure} Months)` : `Standard EMI (${tenure} Months)`),
+      instrument_type: optObj?.instrument_type || (isCash ? "CASH" : "CREDIT_CARD"),
+      bank_key: optObj?.bank_key || null,
+      bank_name: optObj?.bank_name || null,
+      eligibility_note: optObj?.eligibility_note || null,
+      type: isCash ? "CASH" : (optObj?.type || (optId.includes("nocost") ? "NO_COST_EMI" : "STANDARD_EMI")),
+      label: optObj?.label || (isCash ? "Full Payment" : (optId.includes("nocost") ? `No-Cost EMI (${tenure} Months)` : `Standard EMI (${tenure} Months)`)),
       tenure_months: tenure,
       monthly_installment: isCash ? cashPrice : installment,
       upfront_downpayment: isCash ? cashPrice : 0.0,
       processing_fee: isCash ? 0.0 : fee,
       lost_cash_discount: isCash ? 0.0 : cashDiscount,
-      stated_interest_rate: isCash ? 0.0 : (optId.includes("std") ? 15.0 : 0.0)
+      stated_interest_rate: isCash ? 0.0 : (optObj?.stated_interest_rate !== undefined ? optObj.stated_interest_rate : (optId.includes("std") ? 15.0 : 0.0))
     },
     true_cost: {
       effective_annual_rate: ear,
-      nominal_annual_rate: isCash ? 0.0 : Math.round(ear * 0.88 * 100) / 100,
+      nominal_annual_rate: isCash ? 0.0 : (optObj?.stated_interest_rate !== undefined ? optObj.stated_interest_rate : Math.round(ear * 0.88 * 100) / 100),
       total_outflow: totalOutflow,
       hidden_markup: hiddenMarkup,
       is_truly_zero_cost: isZeroCost,
@@ -861,7 +894,7 @@ export function resolveMockVerdict({ productId = "", optionId = "", profileId = 
         is_feasible: true
       }
     ],
-    explanation_bullets: null
+    explanation_bullets: explanationBullets
   };
 }
 

@@ -7,36 +7,72 @@
 
 import { getAdapter } from './adapters/index.js';
 import { PaylensCard } from './card.js';
+import { UniversalEmiExtractor } from './emi_extractor.js';
 
 (async function initPaylensContentScript() {
   console.log('[Paylens Content] Initializing on:', window.location.href);
 
-  // 1. Resolve matching adapter
-  const adapter = getAdapter(window.location.href);
-  if (!adapter) {
-    console.log('[Paylens Content] No adapter matches current URL. Sleeping.');
-    return;
-  }
-
-  console.log('[Paylens Content] Matched adapter:', adapter.id);
-
-  // 2. Initialize Card instance
+  // Initialize Card instance
   const card = new PaylensCard();
   let currentListing = null;
   let activeOptionOverride = null;
   let isEvaluating = false;
   let lastEvaluationKey = null;
+  let adapter = getAdapter(window.location.href);
+  let stopAdapterObserver = null;
+
+  function bindAdapterObserver(adp) {
+    if (stopAdapterObserver) {
+      try { stopAdapterObserver(); } catch (_) {}
+      stopAdapterObserver = null;
+    }
+    if (adp && typeof adp.observe === 'function') {
+      stopAdapterObserver = adp.observe(document, () => {
+        if (!chrome.runtime?.id) return;
+        activeOptionOverride = null;
+        evaluateAffordability();
+      });
+    }
+  }
+
+  if (adapter) {
+    console.log('[Paylens Content] Matched adapter:', adapter.id);
+    bindAdapterObserver(adapter);
+  }
 
   async function evaluateAffordability() {
     if (typeof chrome === 'undefined' || !chrome.runtime?.id) return;
     if (isEvaluating) return;
 
+    if (!adapter) {
+      adapter = getAdapter(window.location.href);
+      if (adapter) {
+        bindAdapterObserver(adapter);
+      }
+    }
+    if (!adapter) return;
+
     // 1. Extract and validate listing first before touching the DOM
     const listing = await Promise.resolve(adapter.extract(document));
-    const selectedOptionId = activeOptionOverride || (await Promise.resolve(adapter.selectedOptionId(document)));
+    let selectedOptionId = activeOptionOverride || (await Promise.resolve(adapter.selectedOptionId(document)));
 
-    if (!listing || !listing.product_id || !listing.upfront_cash_price || listing.upfront_cash_price <= 0 || !selectedOptionId) {
+    if (!listing || !listing.product_id || !listing.upfront_cash_price || listing.upfront_cash_price <= 0) {
       return; // Non-product page or price unextractable: do not mount
+    }
+
+    // Ensure selectedOptionId is guaranteed to exist in listing.payment_options
+    if (Array.isArray(listing.payment_options) && listing.payment_options.length > 0) {
+      const exists = listing.payment_options.some(o => o.option_id === selectedOptionId);
+      if (!exists) {
+        const preferred = listing.payment_options.find(o => o.option_id === 'std_hdfc_3m' || o.option_id === 'std_hdfc_6m' || o.option_id === 'nocost_6m') ||
+                          listing.payment_options.find(o => o.type !== 'CASH') ||
+                          listing.payment_options[0];
+        selectedOptionId = preferred ? preferred.option_id : listing.payment_options[0].option_id;
+      }
+    }
+
+    if (!selectedOptionId) {
+      return;
     }
 
     // 2. Locate Mount Point only for validated products
@@ -161,17 +197,23 @@ import { PaylensCard } from './card.js';
     });
   }
 
-  // 3. Start observing option and product changes (150ms debounced)
-  adapter.observe(document, () => {
-    if (!chrome.runtime?.id) return;
-    activeOptionOverride = null; // Reset user override on product switch
-    evaluateAffordability();
-  });
-
   // Listen for queries and persona changes
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (!adapter) {
+      adapter = getAdapter(window.location.href);
+      if (adapter) bindAdapterObserver(adapter);
+    }
+
     if (msg?.type === 'GET_ACTIVE_SELECTION') {
       (async () => {
+        if (!adapter) {
+          adapter = getAdapter(window.location.href);
+          if (adapter) bindAdapterObserver(adapter);
+        }
+        if (!adapter) {
+          sendResponse({ ok: false, data: { isProductPage: false } });
+          return;
+        }
         const listing = currentListing || (await Promise.resolve(adapter.extract(document)));
         const selectedOptionId = activeOptionOverride || (await Promise.resolve(adapter.selectedOptionId(document)));
         const isValid = Boolean(listing && listing.product_id && listing.upfront_cash_price > 0);
@@ -182,7 +224,8 @@ import { PaylensCard } from './card.js';
             productId: listing.product_id,
             optionId: selectedOptionId || null,
             title: listing.title || null,
-            retailer: listing.retailer || null
+            retailer: listing.retailer || null,
+            listing: listing
           } : {
             isProductPage: false
           }
@@ -196,10 +239,14 @@ import { PaylensCard } from './card.js';
       evaluateAffordability();
     }
     if (msg?.type === 'RELAUNCH_COPILOT') {
+      if (!adapter) {
+        adapter = getAdapter(window.location.href);
+        if (adapter) bindAdapterObserver(adapter);
+      }
       card.isDismissed = false;
       if (card.host) {
         card.host.style.display = 'block';
-      } else {
+      } else if (adapter) {
         const mountPoint = adapter.mountPoint(document) || document.body;
         card.mount(mountPoint);
       }
@@ -211,6 +258,24 @@ import { PaylensCard } from './card.js';
       return false;
     }
   });
+
+  // Track SPA client-side URL changes
+  let lastRecordedUrl = window.location.href;
+  const onUrlChange = () => {
+    if (window.location.href !== lastRecordedUrl) {
+      lastRecordedUrl = window.location.href;
+      const newAdapter = getAdapter(window.location.href);
+      if (newAdapter) {
+        adapter = newAdapter;
+        bindAdapterObserver(adapter);
+        lastEvaluationKey = null;
+        isEvaluating = false;
+        evaluateAffordability();
+      }
+    }
+  };
+  window.addEventListener('popstate', onUrlChange);
+  window.addEventListener('hashchange', onUrlChange);
 
   // 4. Initial evaluation run with retry for delayed SPA rendering
   const runInitialEvaluations = () => {
@@ -224,5 +289,13 @@ import { PaylensCard } from './card.js';
   } else {
     runInitialEvaluations();
   }
+
+  // 5. Observe on-page EMI modal interactions (e.g. user opens modal or changes bank tabs)
+  UniversalEmiExtractor.observeEmiModal(document, () => {
+    console.log('[Paylens Content] Detected EMI modal update in DOM. Re-evaluating with live bank data.');
+    lastEvaluationKey = null;
+    isEvaluating = false;
+    evaluateAffordability();
+  });
 })();
 

@@ -12,8 +12,7 @@
     "http://localhost:8000/*",
     "http://127.0.0.1:8000/*",
     "https://*.run.app/*",
-    "*://*.amazon.in/*",
-    "*://*.flipkart.com/*"
+    "*://*/*"
   ],
   "background": {
     "service_worker": "background/service_worker.js",
@@ -22,18 +21,11 @@
   "content_scripts": [
     {
       "matches": [
-        "*://*.amazon.in/*",
-        "*://*.amazon.com/*",
-        "*://*.flipkart.com/*",
-        "http://localhost:8000/mock-shop/*",
-        "http://127.0.0.1:8000/mock-shop/*",
-        "https://*.run.app/mock-shop/*",
-        "file:///*mock-shop/*",
-        "http://localhost:*/mock-shop/*",
-        "http://127.0.0.1:*/mock-shop/*"
+        "*://*/*",
+        "file:///*"
       ],
       "js": [
-        "content/content_loader.js"
+        "content/content.bundle.js"
       ],
       "run_at": "document_idle"
     }
@@ -41,15 +33,13 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "content/card.css",
-        "content/content.js",
-        "content/card.js",
-        "content/adapters/index.js",
-        "content/adapters/amazon.js",
-        "content/adapters/flipkart.js",
-        "content/adapters/generic.js",
-        "content/adapters/mock_shop.js",
-        "options/options.html"
+        "content/*",
+        "content/adapters/*",
+        "options/*",
+        "icons/*",
+        "popup/*",
+        "config.js",
+        "mock_data.js"
       ],
       "matches": [
         "<all_urls>"

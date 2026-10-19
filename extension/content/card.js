@@ -7,13 +7,46 @@
  * - Strict implementation of ARCHITECTURE.md §8.6.
  */
 
+export function getBankForOption(opt) {
+  if (!opt) return 'Partner Bank';
+  if (opt.bank_name) return opt.bank_name;
+  if (opt.type === 'CASH') return 'Cash / UPI';
+  const label = opt.label || '';
+  const optId = opt.option_id || '';
+  const isDebit = opt.instrument_type === 'DEBIT_CARD' || /debit/i.test(label) || /debit/i.test(optId);
+
+  let baseBank = 'Partner Bank';
+  if (/bajaj/i.test(label) || /bajaj/i.test(optId)) return 'Bajaj Finserv';
+  if (/amazon\s*pay\s*later/i.test(label) || /amazonpaylater/i.test(optId)) return 'Amazon Pay Later';
+  if (/flipkart\s*pay\s*later/i.test(label) || /flipkartpaylater/i.test(optId)) return 'Flipkart Pay Later';
+
+  if (/hdfc/i.test(label) || /hdfc/i.test(optId)) baseBank = 'HDFC Bank';
+  else if (/icici/i.test(label) || /icici/i.test(optId)) baseBank = 'ICICI Bank';
+  else if (/sbi/i.test(label) || /sbi/i.test(optId)) baseBank = 'SBI Card';
+  else if (/axis/i.test(label) || /axis/i.test(optId)) baseBank = 'Axis Bank';
+  else if (/kotak/i.test(label) || /kotak/i.test(optId)) baseBank = 'Kotak Bank';
+  else if (/citi/i.test(label) || /citi/i.test(optId)) baseBank = 'Citi Bank';
+  else if (/amex/i.test(label) || /amex/i.test(optId)) baseBank = 'American Express';
+  else if (/hsbc/i.test(label) || /hsbc/i.test(optId)) baseBank = 'HSBC Bank';
+  else if (/onecard/i.test(label) || /onecard/i.test(optId)) baseBank = 'OneCard';
+  else if (/rbl/i.test(label) || /rbl/i.test(optId)) baseBank = 'RBL Bank';
+
+  if (isDebit && !baseBank.includes('Debit')) {
+    return `${baseBank} (Debit Card)`;
+  }
+  return baseBank;
+}
+
 export class PaylensCard {
   constructor() {
     this.host = null;
     this.shadowRoot = null;
     this.currentMount = null;
+    this.currentListing = null;
     this.currentVerdict = null;
     this.currentLanguage = 'en';
+    this.selectedBankFilter = null;
+    this.activeSelectedOptionId = null;
     this.isOpen = false; // Closed by default: non-intrusive floating trigger
     this.isDismissed = false;
     this.callbacks = {};
@@ -312,35 +345,142 @@ export class PaylensCard {
   // ==========================================================================
   renderVerdict(verdict, { onLanguageChange, onOpenOptions, onSelectOption, currentLanguage = 'en', listing = null, selectedOptionId = null } = {}) {
     if (!this.shadowRoot || !verdict || this.isDismissed) return;
+    this.currentListing = listing;
     this.currentVerdict = verdict;
     this.currentLanguage = currentLanguage;
+    this.activeSelectedOptionId = selectedOptionId;
 
-    // Payment Option Selector Pills
+    // Payment Option Selector Pills & Bank Filtering
     let paymentOptionsHtml = '';
     const paymentOptions = listing?.payment_options || [];
     if (paymentOptions.length > 1) {
       const activeOptId = selectedOptionId || verdict.selected_option?.option_id || paymentOptions[0].option_id;
-      const pills = paymentOptions.map((opt) => {
+      const activeOpt = paymentOptions.find(o => o.option_id === activeOptId);
+      const activeOptBank = activeOpt ? getBankForOption(activeOpt) : null;
+
+      // Extract unique banks (excluding Cash)
+      const banks = [];
+      for (const opt of paymentOptions) {
+        if (opt.type !== 'CASH') {
+          const b = getBankForOption(opt);
+          if (b && !banks.includes(b)) {
+            banks.push(b);
+          }
+        }
+      }
+
+      // Determine active bank filter
+      if (!this.selectedBankFilter || (this.selectedBankFilter !== 'all' && !banks.includes(this.selectedBankFilter))) {
+        this.selectedBankFilter = (activeOptBank && activeOptBank !== 'Cash / UPI') ? activeOptBank : (banks[0] || 'all');
+      }
+
+      // If active option bank changed, update selectedBankFilter to follow it
+      if (activeOptBank && activeOptBank !== 'Cash / UPI' && this.selectedBankFilter !== 'all' && this.selectedBankFilter !== activeOptBank) {
+        this.selectedBankFilter = activeOptBank;
+      }
+
+      const activeBank = this.selectedBankFilter;
+
+      // Filter options to show: ALWAYS Cash, plus options matching activeBank (or all)
+      const visibleOptions = paymentOptions.filter((opt) => {
+        if (opt.type === 'CASH') return true;
+        if (activeBank === 'all') return true;
+        return getBankForOption(opt) === activeBank;
+      });
+
+      const pills = visibleOptions.map((opt) => {
         const isSelected = opt.option_id === activeOptId;
-        const icon = opt.type === 'CASH' ? '💵' : (opt.type === 'NO_COST_EMI' ? '⚡' : '📅');
+        const isDebit = opt.instrument_type === 'DEBIT_CARD' || /debit/i.test(opt.label) || /debit/i.test(opt.option_id);
+        const isBnpl = opt.instrument_type === 'CARDLESS_BNPL' || /pay\s*later|bajaj/i.test(opt.label) || /paylater|bajaj/i.test(opt.option_id);
+        const isNoCost = opt.type === 'NO_COST_EMI';
+
+        let icon = '💳';
+        if (opt.type === 'CASH') {
+          icon = '💵';
+        } else if (isBnpl) {
+          icon = '🛍️';
+        } else if (isDebit) {
+          icon = '🏧';
+        } else if (isNoCost) {
+          icon = '⚡';
+        }
+
         const costStr = opt.type === 'CASH'
           ? PaylensCard.formatINR(opt.monthly_installment)
           : `${PaylensCard.formatINR(opt.monthly_installment)}/mo`;
 
+        // Format label cleanly
+        let displayLabel = opt.label;
+        if (opt.type !== 'CASH' && activeBank !== 'all') {
+          const aprSuffix = opt.stated_interest_rate > 0 ? ` • ${opt.stated_interest_rate}% APR` : ' • 0% APR';
+          displayLabel = `${opt.tenure_months} Months${aprSuffix}`;
+        }
+
         return `
           <button class="option-pill ${isSelected ? 'active' : ''}" type="button" data-opt-id="${opt.option_id}" title="${opt.label}">
-            <span class="opt-pill-title">${icon} ${opt.label}</span>
+            <span class="opt-pill-title">${icon} ${displayLabel}</span>
             <span class="opt-pill-amount">${costStr}</span>
           </button>
         `;
       }).join('');
 
+      // Group banks into categories: Credit, Debit, Cardless/BNPL
+      const creditBanks = [];
+      const debitBanks = [];
+      const bnplBanks = [];
+
+      for (const b of banks) {
+        if (b.includes('Debit')) {
+          debitBanks.push(b);
+        } else if (b.includes('Pay Later') || b.includes('Bajaj')) {
+          bnplBanks.push(b);
+        } else {
+          creditBanks.push(b);
+        }
+      }
+
+      let bankGroupsHtml = '';
+      if (creditBanks.length > 0) {
+        bankGroupsHtml += `<optgroup label="Credit Cards">${creditBanks.map(b => `<option value="${b}" ${b === activeBank ? 'selected' : ''}>${b}</option>`).join('')}</optgroup>`;
+      }
+      if (debitBanks.length > 0) {
+        bankGroupsHtml += `<optgroup label="Debit Cards (Min ₹5,000)">${debitBanks.map(b => `<option value="${b}" ${b === activeBank ? 'selected' : ''}>${b}</option>`).join('')}</optgroup>`;
+      }
+      if (bnplBanks.length > 0) {
+        bankGroupsHtml += `<optgroup label="Cardless & BNPL">${bnplBanks.map(b => `<option value="${b}" ${b === activeBank ? 'selected' : ''}>${b}</option>`).join('')}</optgroup>`;
+      }
+      bankGroupsHtml += `<option value="all" ${activeBank === 'all' ? 'selected' : ''}>All Plans (${paymentOptions.length - 1} plans)</option>`;
+
+      const bankDropdownHtml = banks.length > 1 ? `
+        <div class="bank-dropdown-wrapper">
+          <label for="paylensBankSelect" class="bank-select-label">Bank / Method:</label>
+          <select id="paylensBankSelect" class="bank-select" aria-label="Filter EMI Plans by Bank or Instrument">
+            ${bankGroupsHtml}
+          </select>
+        </div>
+      ` : '';
+
+      // Eligibility guidance banner for active selected option (Debit Card pre-approval or BNPL KYC)
+      let eligibilityBannerHtml = '';
+      if (activeOpt?.eligibility_note) {
+        eligibilityBannerHtml = `
+          <div class="eligibility-notice-banner">
+            <span class="eligibility-icon">ℹ️</span>
+            <span class="eligibility-text">${activeOpt.eligibility_note}</span>
+          </div>
+        `;
+      }
+
       paymentOptionsHtml = `
         <div class="payment-options-selector">
-          <span class="section-label-sm" style="margin-bottom: 6px; display: block;">Select Payment Plan to Evaluate:</span>
+          <div class="bank-selector-header">
+            <span class="section-label-sm">Payment Plan to Evaluate:</span>
+            ${bankDropdownHtml}
+          </div>
           <div class="option-pills-row">
             ${pills}
           </div>
+          ${eligibilityBannerHtml}
         </div>
       `;
     }
@@ -429,6 +569,34 @@ export class PaylensCard {
 
     const bulletsHtml = bullets.map(b => `<li class="bullet-item">${b}</li>`).join('');
 
+    const isConverted = Boolean(verdict.is_converted || (listing?.currency && listing.currency !== 'INR'));
+    const currencyCode = verdict.currency || listing?.currency || 'INR';
+    const currencySymbol = verdict.currency_symbol || listing?.currency_symbol || '₹';
+    const originalPrice = verdict.original_price || listing?.original_price;
+    const exchangeRate = verdict.exchange_rate || listing?.exchange_rate || 1.0;
+    const inrPrice = listing?.effective_cash_price || listing?.upfront_cash_price || (originalPrice ? Math.round(originalPrice * exchangeRate) : null);
+
+    let currencyBannerHtml = '';
+    if (isConverted && originalPrice) {
+      currencyBannerHtml = `
+        <div class="currency-classification-banner">
+          <div class="currency-tag-row">
+            <span class="currency-badge">🌐 ${currencyCode} Classified</span>
+            <span class="currency-orig-price">${currencySymbol}${Number(originalPrice).toLocaleString('en-US')}</span>
+            <span class="currency-arrow">⇄</span>
+            <span class="currency-inr-tag">₹${Number(inrPrice).toLocaleString('en-IN')} INR</span>
+          </div>
+          <div class="currency-fx-sub">
+            Auto-converted at FX Rate 1 ${currencyCode} = ₹${Number(exchangeRate).toFixed(2)} INR to match verified Indian payslip.
+          </div>
+        </div>
+      `;
+    }
+
+    const pillsText = isConverted && originalPrice
+      ? `${currencySymbol}${Number(originalPrice).toLocaleString('en-US')} • ${badgeIcon} ${level}`
+      : `${badgeIcon} ${level}`;
+
     // Render Floating Launcher & Copilot Panel
     this.shadowRoot.innerHTML = `
       ${this._getStyleTag()}
@@ -456,6 +624,9 @@ export class PaylensCard {
           </div>
 
           <div class="card-body">
+            <!-- Currency Classification Banner (if foreign currency detected) -->
+            ${currencyBannerHtml}
+
             <!-- 0. Interactive Payment Option Selector (if options available) -->
             ${paymentOptionsHtml}
 
@@ -580,7 +751,7 @@ export class PaylensCard {
           <span class="status-pulse-dot ${level.toLowerCase()}"></span>
         </div>
         <span class="floating-title">Paylens Copilot</span>
-        <span class="floating-pill pill-${level.toLowerCase()}">${badgeIcon} ${level}</span>
+        <span class="floating-pill pill-${level.toLowerCase()}">${pillsText}</span>
       </button>
     `;
 
@@ -628,6 +799,34 @@ export class PaylensCard {
         }
       });
     });
+
+    // Bank Dropdown Change
+    const bankSelect = this.shadowRoot.querySelector('#paylensBankSelect');
+    if (bankSelect) {
+      bankSelect.addEventListener('change', (e) => {
+        const newBank = e.target.value;
+        this.selectedBankFilter = newBank;
+        // If switching to a specific bank, select its first plan
+        if (newBank !== 'all' && onSelectOption) {
+          const bankPlan = this.currentListing?.payment_options?.find(o => 
+            getBankForOption(o) === newBank && o.type !== 'CASH'
+          );
+          if (bankPlan) {
+            onSelectOption(bankPlan.option_id);
+            return;
+          }
+        }
+        // Otherwise re-render options with active filter
+        this.renderVerdict(this.currentVerdict, {
+          currentLanguage: this.currentLanguage,
+          listing: this.currentListing,
+          selectedOptionId: this.activeSelectedOptionId,
+          onSelectOption,
+          onOpenOptions,
+          onLanguageChange
+        });
+      });
+    }
 
     // Settings Button
     const settingsBtn = this.shadowRoot.querySelector('.btn-settings');

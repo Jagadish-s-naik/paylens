@@ -21,7 +21,8 @@ let activeProductContext = {
   productId: null,
   optionId: null,
   title: null,
-  retailer: null
+  retailer: null,
+  listing: null
 };
 
 function formatINR(amount) {
@@ -32,27 +33,50 @@ function formatINR(amount) {
 }
 
 /**
- * Validates whether a URL strictly matches a supported e-commerce product detail page.
+ * Validates whether a URL matches known e-commerce stores or standard PDP path patterns.
  */
 function isEcommerceProductUrl(url = '') {
   if (!url) return false;
   const u = url.toLowerCase();
 
-  // 1. Amazon PDP
-  if ((u.includes('amazon.in') || u.includes('amazon.com') || u.includes('amazon.')) &&
-      (u.includes('/dp/') || u.includes('/gp/product/') || u.includes('/gp/aw/d/'))) {
-    return true;
+  // Amazon specific check (standard /dp/, short /d/, /gp/aw/d/, /gp/product/, /deal/, ASIN query params)
+  const isAmazon = u.includes('amazon.') || u.includes('amzn.');
+  if (isAmazon) {
+    const isAmzPdp = u.includes('/dp/') || u.includes('/d/') || u.includes('/gp/product/') ||
+                     u.includes('/gp/aw/d/') || u.includes('/exec/obidos/asin/') ||
+                     u.includes('/deal/') || u.includes('/asin/') || u.includes('?asin=') ||
+                     u.includes('&asin=') || u.includes('pd_rd_i=') ||
+                     /\/(dp|d|deal)\/[a-z0-9]{10}/i.test(u) ||
+                     /\/([b0-9][a-z0-9]{9})(?:[/?]|$)/i.test(u);
+    if (isAmzPdp) return true;
   }
 
-  // 2. Flipkart PDP
-  if (u.includes('flipkart.com') && (u.includes('/p/') || u.includes('pid=') || u.includes('/itm'))) {
-    return true;
+  // Flipkart specific check
+  const isFlipkart = u.includes('flipkart.com') || u.includes('fkart.com');
+  if (isFlipkart) {
+    const isFkPdp = u.includes('/p/') || u.includes('pid=') || u.includes('itm') || u.includes('/product/');
+    if (isFkPdp) return true;
   }
 
-  // 3. MockStore PDP
-  if (u.includes('/mock-shop/') || u.includes('mock-shop')) {
-    return true;
-  }
+  // Major Indian & Global E-Commerce Marketplaces
+  const knownStores = [
+    'amazon.', 'amzn.', 'flipkart.com', 'myntra.com', 'croma.com',
+    'reliancedigital.in', 'tatacliq.com', 'ajio.com',
+    'meesho.com', 'nykaa.com', 'vijaysales.com',
+    'apple.com', 'samsung.com', 'dell.com', 'lenovo.com',
+    'nike.com', 'adidas.', 'boat-lifestyle.com',
+    'ebay.', 'mock-shop'
+  ];
+
+  const hasStore = knownStores.some(store => u.includes(store));
+  const hasPdpSlug = u.includes('/product/') || u.includes('/products/') ||
+      u.includes('/p/') || u.includes('/p-') || u.includes('/dp/') || u.includes('/d/') ||
+      u.includes('/item/') || u.includes('/itm/') || u.includes('/pd/') ||
+      u.includes('/buy') || u.includes('?pid=') || u.includes('&pid=') ||
+      u.includes('?sku=') || u.includes('&sku=') || u.includes('/catalog/product/view/');
+
+  if (hasStore && (hasPdpSlug || u.includes('mock-shop'))) return true;
+  if (hasPdpSlug) return true;
 
   return false;
 }
@@ -100,7 +124,8 @@ async function detectActiveStoreContext() {
     productId: null,
     optionId: null,
     title: null,
-    retailer: null
+    retailer: null,
+    listing: null
   };
 
   try {
@@ -110,20 +135,33 @@ async function detectActiveStoreContext() {
     const tabUrl = (tab.url || '').toLowerCase();
     const isEcom = isEcommerceProductUrl(tabUrl);
 
-    // 1. Try querying content script directly
+    // 1. Try querying content script directly with fallback auto-injection
     if (tab.id) {
+      let response = null;
       try {
-        const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_ACTIVE_SELECTION' });
-        if (response?.ok && response.data?.isProductPage && response.data?.productId) {
-          activeProductContext.isProductPage = true;
-          activeProductContext.productId = response.data.productId;
-          activeProductContext.optionId = response.data.optionId || 'cash_full';
-          activeProductContext.title = response.data.title || formatProductTitle(response.data.productId);
-          activeProductContext.retailer = response.data.retailer || 'Online Retailer';
-          return;
-        }
+        response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_ACTIVE_SELECTION' });
       } catch (_) {
-        // Content script might not be injected on non-store tabs
+        // Tab might have been open prior to extension reload. Try auto-injecting content_loader.js
+        if (chrome.scripting?.executeScript && tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://') || tab.url.startsWith('file://'))) {
+          try {
+            await chrome.scripting.executeScript({
+              target: { tabId: tab.id },
+              files: ['content/content_loader.js']
+            });
+            await new Promise(r => setTimeout(r, 250));
+            response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_ACTIVE_SELECTION' });
+          } catch (_) {}
+        }
+      }
+
+      if (response?.ok && response.data?.isProductPage && response.data?.productId) {
+        activeProductContext.isProductPage = true;
+        activeProductContext.productId = response.data.productId;
+        activeProductContext.optionId = response.data.optionId || 'nocost_6m';
+        activeProductContext.title = response.data.title || formatProductTitle(response.data.productId);
+        activeProductContext.retailer = response.data.retailer || 'Online Retailer';
+        activeProductContext.listing = response.data.listing || null;
+        return;
       }
     }
 
@@ -133,21 +171,30 @@ async function detectActiveStoreContext() {
       return;
     }
 
-    // 3. Fallback to URL pattern inspection for recognized e-commerce PDPs only
-    if (tabUrl.includes('amazon.')) {
-      activeProductContext.isProductPage = true;
-      activeProductContext.productId = 'amazon_item';
-      activeProductContext.optionId = 'nocost_6m';
-      activeProductContext.title = tab.title ? tab.title.split(':')[0].trim() : 'Amazon Product';
+    // 3. Fallback to URL pattern inspection for recognized e-commerce PDPs
+    const cleanTitle = tab.title ? tab.title.split(/[|:\-–—]/)[0].trim() : 'Store Product';
+    let retailerName = 'Online Store';
+    try {
+      const parsedUrl = new URL(tab.url);
+      const hostParts = parsedUrl.hostname.replace(/^www\./, '').split('.');
+      retailerName = hostParts[0].charAt(0).toUpperCase() + hostParts[0].slice(1);
+    } catch (_) {}
+
+    activeProductContext.isProductPage = true;
+    activeProductContext.productId = 'ecom_' + (tab.id || 100);
+    activeProductContext.optionId = 'nocost_6m';
+    activeProductContext.title = cleanTitle;
+    activeProductContext.retailer = retailerName;
+
+    if (tabUrl.includes('amazon.') || tabUrl.includes('amzn.')) {
       activeProductContext.retailer = 'Amazon';
+      const asinMatch = tabUrl.match(/(?:\/dp\/|\/d\/|\/gp\/product\/|\/gp\/aw\/d\/)([a-z0-9]{10})/i);
+      activeProductContext.productId = asinMatch ? asinMatch[1] : 'amazon_item';
     } else if (tabUrl.includes('flipkart.')) {
-      activeProductContext.isProductPage = true;
-      activeProductContext.productId = 'flipkart_item';
-      activeProductContext.optionId = 'nocost_6m';
-      activeProductContext.title = tab.title ? tab.title.split('|')[0].trim() : 'Flipkart Product';
       activeProductContext.retailer = 'Flipkart';
+      activeProductContext.productId = 'flipkart_item';
     } else if (tabUrl.includes('/mock-shop/') || tabUrl.includes('mock-shop')) {
-      activeProductContext.isProductPage = true;
+      activeProductContext.retailer = 'MockStore';
       if (tabUrl.includes('iphone') || tabUrl.endsWith('#iphone')) {
         activeProductContext.productId = 'iphone_16_pro';
         activeProductContext.optionId = 'iphone_nocost_6m';
@@ -161,7 +208,6 @@ async function detectActiveStoreContext() {
         activeProductContext.optionId = 'sony_nocost_6m';
         activeProductContext.title = 'Sony WH-1000XM5';
       }
-      activeProductContext.retailer = 'MockStore';
     }
   } catch (err) {
     console.warn('[Paylens Popup] Could not inspect active tab:', err);
@@ -212,12 +258,16 @@ async function refreshVerdictPreview() {
       productId: activeProductContext.productId,
       optionId: activeProductContext.optionId,
       profileId: currentProfile.profile_id,
-      profile: currentProfile
+      profile: currentProfile,
+      listing: activeProductContext.listing
     });
 
     if (standbyContainer) standbyContainer.hidden = true;
+    const headerTitle = activeProductContext.retailer && activeProductContext.retailer !== 'Online Retailer'
+      ? `${activeProductContext.retailer} Product Evaluation`
+      : 'Active Product Evaluation';
     renderLastVerdict(verdict, activeProductContext.title, {
-      boxHeader: 'Active Product Evaluation',
+      boxHeader: headerTitle,
       isLive: true
     });
 
@@ -359,6 +409,19 @@ function renderLastVerdict(verdict, productTitle = '', options = {}) {
 
   if (titleEl) {
     titleEl.textContent = productTitle || activeProductContext.title || 'Product';
+  }
+
+  // Multi-Currency Classification Tag
+  const currBadge = document.getElementById('verdict-currency-badge');
+  const currText = document.getElementById('verdict-currency-text');
+  const isConverted = verdict.is_converted || (verdict.currency && verdict.currency !== 'INR');
+  if (currBadge && currText) {
+    if (isConverted && verdict.original_price) {
+      currText.textContent = `${verdict.currency} (${verdict.currency_symbol || '$'}${Number(verdict.original_price).toLocaleString('en-US')}) ⇄ Converted to ₹${Math.round(verdict.selected_option?.monthly_installment || 0).toLocaleString('en-IN')} INR`;
+      currBadge.hidden = false;
+    } else {
+      currBadge.hidden = true;
+    }
   }
 
   if (contextEl) {

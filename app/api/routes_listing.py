@@ -26,32 +26,99 @@ class ParseListingRequest(BaseModel):
     text: str = Field(..., description="Unstructured webpage text or listing snippet")
 
 
-def fallback_regex_parse(text: str, page_title: Optional[str] = None) -> Listing:
-    """Deterministic regex extraction for offline or non-AI fallback."""
-    title = (page_title or "Extracted Product").strip()
-    price_matches = re.findall(r"(?:₹|Rs\.?|INR)\s*(\d+(?:,\d+)*(?:\.\d+)?)", text, flags=re.IGNORECASE)
-    price = 10000.0
-    if price_matches:
+EXCHANGE_RATES_TO_INR = {
+    "INR": 1.0,
+    "USD": 84.00,
+    "EUR": 91.50,
+    "GBP": 109.00,
+    "AED": 22.90,
+    "CAD": 61.50,
+    "AUD": 54.50,
+    "SGD": 63.80,
+    "JPY": 0.55,
+    "CNY": 11.80,
+}
+
+CURRENCY_SYMBOLS = {
+    "INR": "₹",
+    "USD": "$",
+    "EUR": "€",
+    "GBP": "£",
+    "AED": "AED ",
+    "CAD": "CA$",
+    "AUD": "AU$",
+    "SGD": "SG$",
+    "JPY": "¥",
+    "CNY": "CN¥",
+}
+
+
+def detect_currency_and_price(text: str):
+    """Detects foreign currency and extracts numeric price."""
+    patterns = [
+        ("USD", r"(?:\$|USD|US\$)\s*(\d+(?:,\d+)*(?:\.\d+)?)"),
+        ("EUR", r"(?:€|EUR)\s*(\d+(?:,\d+)*(?:\.\d+)?)"),
+        ("GBP", r"(?:£|GBP)\s*(\d+(?:,\d+)*(?:\.\d+)?)"),
+        ("AED", r"(?:AED|د\.إ|Dhs)\s*(\d+(?:,\d+)*(?:\.\d+)?)"),
+        ("CAD", r"(?:CA\$|C\$|CAD)\s*(\d+(?:,\d+)*(?:\.\d+)?)"),
+        ("AUD", r"(?:AU\$|A\$|AUD)\s*(\d+(?:,\d+)*(?:\.\d+)?)"),
+        ("SGD", r"(?:SG\$|S\$|SGD)\s*(\d+(?:,\d+)*(?:\.\d+)?)"),
+        ("JPY", r"(?:¥|JPY)\s*(\d+(?:,\d+)*(?:\.\d+)?)"),
+        ("INR", r"(?:₹|Rs\.?|INR)\s*(\d+(?:,\d+)*(?:\.\d+)?)"),
+    ]
+    for code, pat in patterns:
+        m = re.findall(pat, text, flags=re.IGNORECASE)
+        if m:
+            try:
+                raw_val = float(m[0].replace(",", ""))
+                return code, raw_val
+            except ValueError:
+                continue
+
+    # Generic number fallback (assume INR)
+    generic_m = re.findall(r"\b(\d+(?:,\d+)*(?:\.\d+)?)\b", text)
+    if generic_m:
         try:
-            price = float(price_matches[0].replace(",", ""))
+            return "INR", float(generic_m[0].replace(",", ""))
         except ValueError:
-            price = 10000.0
+            pass
+
+    return "INR", 10000.0
+
+
+def fallback_regex_parse(text: str, page_title: Optional[str] = None) -> Listing:
+    """Deterministic regex extraction with multi-currency classification for offline or fallback."""
+    title = (page_title or "Extracted Product").strip()
+    currency, raw_price = detect_currency_and_price(text)
+    rate = EXCHANGE_RATES_TO_INR.get(currency, 1.0)
+    inr_price = round(raw_price * rate, 2)
+    symbol = CURRENCY_SYMBOLS.get(currency, f"{currency} ")
+
+    label = (
+        f"Full Upfront Payment ({symbol}{raw_price:,.2f} ⇄ ₹{inr_price:,.2f} INR)"
+        if currency != "INR"
+        else "Full Upfront Payment"
+    )
 
     return Listing(
         product_id=f"item_{abs(hash(title)) % 100000}",
         title=title,
         category="General",
         retailer="Online Retailer",
-        upfront_cash_price=price,
+        currency=currency,
+        currency_symbol=symbol,
+        original_currency_price=raw_price if currency != "INR" else None,
+        exchange_rate_to_inr=rate,
+        upfront_cash_price=inr_price,
         cash_discount=0.0,
-        effective_cash_price=price,
+        effective_cash_price=inr_price,
         payment_options=[
             PaymentOption(
                 option_id="cash_full",
                 type=PaymentType.CASH,
-                label="Full Upfront Payment",
+                label=label,
                 tenure_months=1,
-                monthly_installment=price,
+                monthly_installment=inr_price,
                 upfront_downpayment=0.0,
                 processing_fee=0.0,
                 lost_cash_discount=None,

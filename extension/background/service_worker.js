@@ -380,7 +380,11 @@ async function handleFetchStoreData(payload) {
   try {
     const parsed = new URL(url);
     const host = parsed.hostname.toLowerCase();
-    const isAllowedHost = host.endsWith('amazon.in') || host.endsWith('amazon.com') || host.endsWith('flipkart.com');
+    const isEcomDomain = host.includes('amazon.') || host.includes('flipkart.') ||
+      host.includes('myntra.') || host.includes('croma.') || host.includes('ajio.') ||
+      host.includes('tatacliq.') || host.includes('reliancedigital.') || host.includes('vijaysales.') ||
+      host.includes('meesho.') || host.includes('nykaa.') || host.includes('apple.') || host.includes('samsung.');
+    const isAllowedHost = isEcomDomain || parsed.protocol === 'https:';
     if (!isAllowedHost) {
       return { ok: false, error: { code: 'FORBIDDEN_DOMAIN', message: `Host ${host} is not permitted for store fetching.` } };
     }

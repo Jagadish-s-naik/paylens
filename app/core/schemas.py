@@ -115,6 +115,10 @@ class PaymentOption(BaseModel):
     # Set to None for CASH option where the discount is captured.
     lost_cash_discount: Optional[float] = Field(None, description="Instant discount lost if taking EMI")
     stated_interest_rate: float = Field(0.0, description="Advertised annual interest rate (0% for No-Cost)")
+    instrument_type: Optional[str] = Field("CREDIT_CARD", description="CREDIT_CARD, DEBIT_CARD, or CARDLESS_BNPL")
+    bank_key: Optional[str] = Field(None, description="Provider/Bank key slug, e.g. 'hdfc', 'bajaj'")
+    bank_name: Optional[str] = Field(None, description="Provider/Bank display name, e.g. 'HDFC Bank', 'Amazon Pay Later'")
+    eligibility_note: Optional[str] = Field(None, description="Pre-approval / eligibility note if applicable")
 
 class Listing(BaseModel):
     product_id: str
@@ -126,6 +130,10 @@ class Listing(BaseModel):
     
     # effective_cash_price = upfront_cash_price - cash_discount (True baseline benchmark)
     effective_cash_price: float = Field(..., description="Upfront cash price after instant discount")
+    currency: str = Field("INR", description="Source currency code (INR, USD, EUR, GBP, AED, etc.)")
+    currency_symbol: str = Field("₹", description="Currency symbol (₹, $, €, £, etc.)")
+    original_currency_price: Optional[float] = Field(None, description="Original sticker price in source currency before FX conversion")
+    exchange_rate_to_inr: float = Field(1.0, description="FX exchange rate applied to convert to INR")
     payment_options: List[PaymentOption]
 
 # =====================================================================
