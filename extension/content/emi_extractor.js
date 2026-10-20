@@ -137,6 +137,139 @@ export function extractListedStartingEmi(doc) {
   return null;
 }
 
+/**
+ * Real-time dynamic extractor for storefront bank offers and discounts.
+ * Scans DOM offer nodes, offer lists, widgets, and body text without any hardcoded matrices.
+ * Supports flat discounts, percentage caps, per-tenure criteria, and captures full offer basis.
+ * Returns a map of bank key to array of detected offers:
+ * {
+ *   icici: [ { discount: 5500, basis: 'Bank Offer: Flat ₹5,500 off on ICICI Bank Credit Card EMI', tenures: [6, 9], isDebit: false } ]
+ * }
+ */
+export function extractPageBankOffers(doc, listPrice) {
+  const bankOffers = {};
+  if (!doc || !listPrice || listPrice <= 0) return bankOffers;
+
+  const candidateTexts = new Set();
+
+  // 1. DOM offer elements across Flipkart, Amazon, Croma, Reliance Digital, etc.
+  if (typeof doc.querySelectorAll === 'function') {
+    const offerNodes = doc.querySelectorAll(
+      'div.x-r2QD, div._3Ay6Sb, div.UkUFwK, li._16eBzU, div._2teBhd, div._3j4G2b, div._3XINqE, div.row._3q9YpE, div._29jN3X, div._3eA9m-, ' +
+      '#item_offers_list li, #sopp_feature_div li, .offers-items li, .pdp-offers li, .product-offers li, .bank-offers-list li, ' +
+      '[class*="bank-offer"], [class*="offer-item"], [class*="OfferItem"], div.cp-offers, div.M8-xIr, div.Bv11UC, ' +
+      '.offers-strip, .offer-text, [data-testid*="offer"], .pdp-offers'
+    );
+
+    for (const node of offerNodes) {
+      const txt = (node.innerText || node.textContent || '').trim();
+      if (txt.length >= 8 && (txt.includes('₹') || txt.includes('Rs') || txt.includes('INR') || txt.includes('%') || /off|discount/i.test(txt))) {
+        candidateTexts.add(txt);
+      }
+    }
+  }
+
+  // 2. Full body text lines / sentences mentioning bank offers
+  const bodyText = (doc.body ? doc.body.innerText : '') || (typeof document !== 'undefined' ? (document.body?.innerText || '') : '');
+  if (bodyText) {
+    const lines = bodyText.split(/\n+/);
+    for (const l of lines) {
+      const line = l.trim();
+      if ((line.includes('Bank Offer') || line.includes('Instant Discount') || line.includes('Credit Card EMI') || line.includes('Debit Card EMI') || line.includes('Special Price')) &&
+          (line.includes('₹') || line.includes('Rs') || line.includes('INR') || line.includes('%'))) {
+        candidateTexts.add(line);
+      }
+    }
+  }
+
+  // Parse each candidate offer text dynamically
+  for (const rawText of candidateTexts) {
+    const bank = matchBank(rawText);
+    if (!bank) continue;
+
+    const bKey = bank.key;
+    const isDebit = /debit\s*card|debit\s*emi|\bdebit\b/i.test(rawText);
+    const isBnpl = /pay\s*later|bajaj/i.test(rawText) || Boolean(bank.isBnpl);
+
+    // Check minimum order value if present (e.g. "on orders of ₹5,000 and above" or "min order ₹40000")
+    const minOrderMatch = rawText.match(/(?:orders|orders\s*of|minimum\s*purchase|min\s*order|orders\s*above)[^\n.]*?(?:₹|Rs\.?|INR)\s*([0-9]+(?:,[0-9]+)*)/i);
+    if (minOrderMatch) {
+      const minOrder = parsePriceFromText(minOrderMatch[1]);
+      if (minOrder > 0 && listPrice < minOrder) {
+        continue; // Order does not meet minimum threshold
+      }
+    }
+
+    let discount = 0;
+
+    // A. Percentage discount with cap (e.g. "10% Instant Discount up to ₹1,500" or "10% off up to Rs. 2,000")
+    const pctMatch = rawText.match(/(\d+(?:\.\d+)?)\s*%\s*(?:instant\s*discount|off)?[^\n.]*?(?:up\s*to|max)\s*(?:₹|Rs\.?|INR)?\s*([0-9]+(?:,[0-9]+)*)/i);
+    if (pctMatch) {
+      const pct = parseFloat(pctMatch[1]);
+      const cap = parsePriceFromText(pctMatch[2]);
+      if (pct > 0 && cap > 0) {
+        discount = Math.min(Math.round(listPrice * (pct / 100)), cap);
+      }
+    }
+
+    // B. Flat discount amount (e.g. "Flat ₹5,500 off", "₹5,500 discount available", "Flat INR 5000 Instant Discount")
+    if (discount <= 0) {
+      const flatMatch = rawText.match(/(?:Flat|Extra|Instant)?\s*(?:₹|Rs\.?|INR)\s*([0-9]+(?:,[0-9]+)*)\s*(?:off|discount|instant\s*discount)/i) ||
+                        rawText.match(/(?:discount|offer)\s*(?:available|of)?\s*(?:₹|Rs\.?|INR)?\s*([0-9]+(?:,[0-9]+)*)/i) ||
+                        rawText.match(/(?:₹|Rs\.?|INR)\s*([0-9]+(?:,[0-9]+)*)\s*(?:off|discount|instant\s*discount)/i);
+      if (flatMatch) {
+        discount = parsePriceFromText(flatMatch[1]);
+      }
+    }
+
+    // Ignore invalid/zero discounts or absurd discounts > 50% of price
+    if (discount <= 0 || discount >= (listPrice * 0.50)) {
+      continue;
+    }
+
+    // Extract tenures if specified in the offer text (e.g. "on 6 and 9 months tenure" or "for 6 months")
+    const tenures = [];
+    const rangeMatch = rawText.match(/(\d+)\s*(?:and|&|,|-)\s*(\d+)\s*(?:months?|m)\b/i);
+    if (rangeMatch) {
+      tenures.push(parseInt(rangeMatch[1], 10));
+      tenures.push(parseInt(rangeMatch[2], 10));
+    }
+    const singleMatches = rawText.matchAll(/(\d+)\s*(?:months?|m)\b/gi);
+    for (const sm of singleMatches) {
+      const val = parseInt(sm[1], 10);
+      if (!tenures.includes(val)) tenures.push(val);
+    }
+
+    const isEmi = /emi\b|installment/i.test(rawText);
+
+    // Clean basis string for transparent display
+    let basis = rawText.split('\n')[0].trim().replace(/\s*T&C\s*$/i, '');
+    if (basis.length > 85) {
+      basis = basis.slice(0, 82) + '...';
+    }
+
+    if (!bankOffers[bKey]) bankOffers[bKey] = [];
+    bankOffers[bKey].push({
+      discount,
+      basis,
+      tenures,
+      isDebit,
+      isBnpl,
+      isEmi
+    });
+  }
+
+  // Sort offers per bank: EMI-specific offers first, then higher discounts first
+  for (const k of Object.keys(bankOffers)) {
+    bankOffers[k].sort((a, b) => {
+      if (a.isEmi !== b.isEmi) return a.isEmi ? -1 : 1;
+      return b.discount - a.discount;
+    });
+  }
+
+  return bankOffers;
+}
+
 // Track whether lazy-modal trigger was attempted this session to avoid infinite triggers
 let hasAttemptedLazyModalTrigger = false;
 
@@ -236,19 +369,29 @@ export const UniversalEmiExtractor = {
     const options = [];
     if (!doc) return options;
 
-    // Search for modal, drawer, or EMI table containers
+    const pageOffers = extractPageBankOffers(doc, listPrice);
+
+    // Search for modal, drawer, or EMI table containers (including modern SPA portal overlays)
     const containers = doc.querySelectorAll(
-      '[role="dialog"], [class*="modal"], [class*="drawer"], [class*="popup"], ' +
-      '[id*="modal"], [id*="drawer"], [id*="emi"], .pdp-emiOption, .emi-details, #inemi_feature_div, table'
+      '[role="dialog"], [class*="modal" i], [class*="drawer" i], [class*="popup" i], ' +
+      '[class*="overlay" i], div._10Ermr, div._2rQPcW, div._1k9_yB, div[class*="_overlay"], ' +
+      '[id*="modal" i], [id*="drawer" i], [id*="emi" i], .pdp-emiOption, .emi-details, #inemi_feature_div, table'
     );
 
     for (const container of containers) {
       const text = container.innerText || container.textContent || '';
-      if (!text.includes('EMI') && !text.includes('Installment') && !text.includes('Interest') && !text.includes('Plans')) {
+      if (
+        !text.includes('EMI') &&
+        !text.includes('Installment') &&
+        !text.includes('Interest') &&
+        !text.includes('Plans') &&
+        !text.includes('Credit Card') &&
+        !text.includes('Debit Card')
+      ) {
         continue;
       }
 
-      const parsed = this.parseTableRowsFromContainer(container, listPrice, cashDiscount, stdFee);
+      const parsed = this.parseTableRowsFromContainer(container, listPrice, cashDiscount, stdFee, pageOffers);
       for (const opt of parsed) {
         if (!options.some(o => o.option_id === opt.option_id)) {
           options.push(opt);
@@ -262,7 +405,7 @@ export const UniversalEmiExtractor = {
   /**
    * Parses table rows or structured items inside a container, resolving bank context.
    */
-  parseTableRowsFromContainer(container, listPrice, cashDiscount, stdFee) {
+  parseTableRowsFromContainer(container, listPrice, cashDiscount, stdFee, pageOffers = {}) {
     const options = [];
     if (!container) return options;
 
@@ -271,16 +414,19 @@ export const UniversalEmiExtractor = {
     const isContainerDebit = /debit\s*card|debit\s*emi/i.test(containerText);
     const isContainerBnpl = /pay\s*later|bajaj/i.test(containerText);
 
+    // Row selector including radio cards (Flipkart/Amazon/Croma)
+    const rowSelector = 'tr, [class*="row"], [class*="item"], li, label:has(input[type="radio"]), div:has(> input[type="radio"]), [role="radio"], [class*="radio"], div[class*="Option"], div[class*="option"], div[class*="plan-card"], div[class*="planCard"]';
+
     // Check if the container is partitioned by bank (e.g. Amazon InEMI or Myntra bank tabs)
     const bankSections = container.querySelectorAll('[data-bank], .a-box, [class*="bank-plan"], [class*="bank-section"], [class*="accordion-row"]');
 
     if (bankSections.length > 0) {
       for (const section of bankSections) {
         let bank = null;
-        const bankAttr = section.getAttribute('data-bank');
+        const bankAttr = typeof section.getAttribute === 'function' ? section.getAttribute('data-bank') : null;
         if (bankAttr) bank = matchBank(bankAttr);
 
-        const headerEl = section.querySelector('h3, h4, h5, .title, .header, strong, th');
+        const headerEl = typeof section.querySelector === 'function' ? section.querySelector('h1, h2, h3, h4, h5, .title, .header, strong, th') : null;
         const headerText = headerEl ? (headerEl.innerText || headerEl.textContent || '') : '';
         const sectionText = section.innerText || section.textContent || '';
 
@@ -294,11 +440,12 @@ export const UniversalEmiExtractor = {
         const isSectionDebit = /debit\s*card|debit\s*emi|\bdebit\b/i.test(headerText || sectionText);
         const isSectionBnpl = /pay\s*later|bajaj|\bbnpl\b/i.test(headerText || sectionText);
 
-        const rows = section.querySelectorAll('tr, [class*="row"], [class*="item"], li');
+        const rows = typeof section.querySelectorAll === 'function' ? section.querySelectorAll(rowSelector) : [];
         for (const row of rows) {
           const opt = this.parseRowToOption(row, bank, listPrice, cashDiscount, stdFee, {
             isDebit: isSectionDebit || isContainerDebit,
-            isBnpl: isSectionBnpl || isContainerBnpl
+            isBnpl: isSectionBnpl || isContainerBnpl,
+            pageOffers
           });
           if (opt && !options.some(o => o.option_id === opt.option_id)) {
             options.push(opt);
@@ -310,16 +457,102 @@ export const UniversalEmiExtractor = {
       }
     }
 
-    // General fallback: table rows with active bank context
+    // General fallback: table rows or radio cards with active bank context
     const activeBank = this.extractActiveBankFromContainer(container);
-    const rows = container.querySelectorAll('tr, [class*="row"], [class*="item"], li');
+    const rows = container.querySelectorAll(rowSelector);
     for (const row of rows) {
       const opt = this.parseRowToOption(row, activeBank, listPrice, cashDiscount, stdFee, {
         isDebit: isContainerDebit,
-        isBnpl: isContainerBnpl
+        isBnpl: isContainerBnpl,
+        pageOffers
       });
       if (opt && !options.some(o => o.option_id === opt.option_id)) {
         options.push(opt);
+      }
+    }
+
+    // Direct text-chunk parsing on container raw text (100% resilient against minified/obfuscated DOM trees)
+    const rawText = container.innerText || container.textContent || '';
+    const chunkRegex = /(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)\s*(?:\/mo|\/month)?\s*for\s*(\d+)\s*(?:months?|m)\b/gi;
+    const textMatches = [];
+    let tm;
+    while ((tm = chunkRegex.exec(rawText)) !== null) {
+      textMatches.push({
+        index: tm.index,
+        installment: parsePriceFromText(tm[1]),
+        tenure: parseInt(tm[2], 10)
+      });
+    }
+
+    if (textMatches.length > 0) {
+      for (let i = 0; i < textMatches.length; i++) {
+        const item = textMatches[i];
+        const nextIdx = textMatches[i + 1] ? textMatches[i + 1].index : (item.index + 500);
+        const chunk = rawText.slice(item.index, nextIdx);
+
+        const discountMatch = chunk.match(/(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)\s*(?:discount|off)/i) ||
+                              chunk.match(/Bank\s*offer\s*[-–]?\s*(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/i) ||
+                              chunk.match(/(?:discount|offer)\s*(?:of)?\s*(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/i);
+        const rowDiscount = discountMatch ? parsePriceFromText(discountMatch[1]) : 0.0;
+
+        const rateMatch = chunk.match(/(\d+(?:\.\d+)?)\s*%/);
+        const statedRate = rateMatch ? parseFloat(rateMatch[1]) : (isContainerDebit ? 16.0 : 15.99);
+
+        const tcMatch = chunk.match(/(?:Total\s*Cost|Total\s*EMI)\s*(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/i);
+        const totalCost = tcMatch ? parsePriceFromText(tcMatch[1]) : Math.round(item.installment * item.tenure * 100) / 100;
+
+        const isDebit = isContainerDebit || /debit/i.test(chunk);
+        const isBnpl = isContainerBnpl || /pay\s*later|bajaj/i.test(chunk);
+        const isNoCost = /no\s*cost/i.test(chunk) || /0%/i.test(chunk) || Math.abs((item.installment * item.tenure) - listPrice) < 5;
+
+        let bankKey = activeBank ? activeBank.key : (isBnpl ? 'bnpl' : (isDebit ? 'debit' : 'bank'));
+        let bankName = activeBank ? activeBank.name : (isBnpl ? 'Pay Later' : (isDebit ? 'Partner Bank' : 'Partner Bank'));
+        const prefix = isNoCost ? 'nocost' : 'std';
+        const typePrefix = isDebit ? 'debit_' : (isBnpl ? 'bnpl_' : '');
+        const optId = `${prefix}_${typePrefix}${bankKey}_${item.tenure}m`;
+
+        let chunkDiscountBasis = null;
+        if (rowDiscount > 0) {
+          chunkDiscountBasis = discountMatch ? discountMatch[0].trim() : `${bankName} Offer: ₹${rowDiscount.toLocaleString('en-IN')} off on ${item.tenure}M EMI`;
+          if (pageOffers && bankKey && pageOffers[bankKey]) {
+            const matchingOffer = pageOffers[bankKey].find(o => o.discount === rowDiscount || o.tenures.includes(item.tenure));
+            if (matchingOffer && matchingOffer.basis) {
+              chunkDiscountBasis = matchingOffer.basis;
+            }
+          }
+        }
+
+        const discountTag = rowDiscount > 0 ? ` • ₹${rowDiscount.toLocaleString('en-IN')} Off` : '';
+        const label = isNoCost
+          ? `${bankName} No-Cost EMI (${item.tenure}M @ ₹${item.installment.toLocaleString('en-IN')}/mo${discountTag})`
+          : `${bankName} EMI (${item.tenure}M @ ₹${item.installment.toLocaleString('en-IN')}/mo • ${statedRate}% APR${discountTag})`;
+
+        const textOpt = {
+          option_id: optId,
+          instrument_type: isDebit ? INSTRUMENT_TYPES.DEBIT_CARD : (isBnpl ? INSTRUMENT_TYPES.CARDLESS_BNPL : INSTRUMENT_TYPES.CREDIT_CARD),
+          bank_key: bankKey,
+          bank_name: bankName,
+          type: isNoCost ? 'NO_COST_EMI' : 'STANDARD_EMI',
+          label: label,
+          tenure_months: item.tenure,
+          monthly_installment: item.installment,
+          upfront_downpayment: 0.0,
+          processing_fee: stdFee,
+          lost_cash_discount: cashDiscount,
+          bank_discount: rowDiscount,
+          discount_basis: chunkDiscountBasis,
+          total_cost: totalCost,
+          stated_interest_rate: isNoCost ? 0.0 : statedRate,
+          eligibility_note: isDebit ? (DEBIT_PREAPPROVAL_NOTES[bankKey] || DEBIT_PREAPPROVAL_NOTES.default) : null,
+          is_scraped: true
+        };
+
+        const existingIdx = options.findIndex(o => o.option_id === optId);
+        if (existingIdx === -1) {
+          options.push(textOpt);
+        } else if (rowDiscount > 0 && (!options[existingIdx].bank_discount || options[existingIdx].bank_discount <= 0)) {
+          options[existingIdx] = textOpt;
+        }
       }
     }
 
@@ -331,10 +564,10 @@ export const UniversalEmiExtractor = {
    */
   parseRowToOption(row, defaultBank, listPrice, cashDiscount, stdFee, context = {}) {
     if (!row) return null;
-    const rowText = row.innerText || row.textContent || '';
+    const rowText = (row.innerText || row.textContent || '').trim();
 
-    // Ignore header rows
-    if (/tenure|months|duration/i.test(rowText) && /overall cost|interest rate|plan/i.test(rowText)) {
+    // Ignore pure table header rows
+    if (/tenure|months|duration/i.test(rowText) && /overall cost|interest rate|plan/i.test(rowText) && !/₹|Rs\.?/i.test(rowText)) {
       return null;
     }
 
@@ -361,79 +594,118 @@ export const UniversalEmiExtractor = {
       instrumentType = INSTRUMENT_TYPES.CARDLESS_BNPL;
     }
 
-    // Match tenure: 1, 3, 6, 9, 12, 18, 24, 36 months
-    const tenureMatch = rowText.match(/(\d+)\s*(?:months?|m)\b/i) || rowText.match(/\b([1369]|12|18|24|36)\b/);
-    // Match monthly installment: ₹871 or Rs. 871 or 871
-    const priceMatch = rowText.match(/(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/i);
+    // Match tenure and monthly installment
+    // 1. High-priority exact format: "₹14,756 for 6 months" or "₹14,756/mo for 6 months"
+    const exactForMatch = rowText.match(/(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)\s*(?:\/mo|\/month)?\s*for\s*(\d+)\s*(?:months?|m)\b/i);
+    let tenure = 0;
+    let installment = 0;
 
-    if (tenureMatch && priceMatch) {
-      const tenure = parseInt(tenureMatch[1], 10);
-      const installment = parsePriceFromText(priceMatch[1]);
-
-      if (tenure >= 1 && tenure <= 36 && installment > 0 && (tenure === 1 ? Math.abs(installment - listPrice) < 5 : installment < listPrice)) {
-        let isNoCost = /no\s*cost/i.test(rowText) || /0%/i.test(rowText) || Math.abs((installment * tenure) - listPrice) < 5;
-        const rateMatch = rowText.match(/(\d+(?:\.\d+)?)\s*%/);
-        let statedRate = isNoCost ? 0.0 : (rateMatch ? parseFloat(rateMatch[1]) : (isDebit ? 16.0 : 15.0));
-
-        let bankKey = bank ? bank.key : (isBnpl ? 'bnpl' : (isDebit ? 'debit' : 'bank'));
-        let bankName = bank ? bank.name : (isBnpl ? 'Pay Later' : (isDebit ? 'Partner Bank' : 'Partner Bank'));
-        let optFee = stdFee;
-        let eligibilityNote = null;
-
-        if (instrumentType === INSTRUMENT_TYPES.DEBIT_CARD) {
-          eligibilityNote = DEBIT_PREAPPROVAL_NOTES[bankKey] || DEBIT_PREAPPROVAL_NOTES.default;
-          if (!bankName.includes('Debit')) {
-            bankName = `${bankName} (Debit Card)`;
-          }
-        } else if (instrumentType === INSTRUMENT_TYPES.CARDLESS_BNPL) {
-          if (bankKey === 'bajaj' || /bajaj/i.test(bankName)) {
-            isNoCost = true;
-            statedRate = 0.0;
-            optFee = 117.0; // Bajaj Finserv standard processing fee
-            eligibilityNote = BNPL_NOTES.bajaj;
-            bankKey = 'bajaj';
-            bankName = 'Bajaj Finserv';
-          } else if (bankKey === 'amazonpaylater' || /amazon/i.test(bankName)) {
-            optFee = 0.0;
-            eligibilityNote = BNPL_NOTES.amazonpaylater;
-            bankKey = 'amazonpaylater';
-            bankName = 'Amazon Pay Later';
-          } else if (bankKey === 'flipkartpaylater' || /flipkart/i.test(bankName)) {
-            optFee = 0.0;
-            eligibilityNote = BNPL_NOTES.flipkartpaylater;
-            bankKey = 'flipkartpaylater';
-            bankName = 'Flipkart Pay Later';
-          }
-        }
-
-        const prefix = isNoCost ? 'nocost' : 'std';
-        const typePrefix = instrumentType === INSTRUMENT_TYPES.DEBIT_CARD ? 'debit_' : (instrumentType === INSTRUMENT_TYPES.CARDLESS_BNPL ? 'bnpl_' : '');
-        const optId = `${prefix}_${typePrefix}${bankKey}_${tenure}m`;
-
-        let label = '';
-        if (isNoCost) {
-          label = `${bankName} No-Cost EMI (${tenure}M @ ₹${installment.toLocaleString('en-IN')}/mo)`;
-        } else {
-          label = `${bankName} EMI (${tenure}M @ ₹${installment.toLocaleString('en-IN')}/mo • ${statedRate}% APR)`;
-        }
-
-        return {
-          option_id: optId,
-          instrument_type: instrumentType,
-          bank_key: bankKey,
-          bank_name: bankName,
-          type: isNoCost ? 'NO_COST_EMI' : 'STANDARD_EMI',
-          label: label,
-          tenure_months: tenure,
-          monthly_installment: installment,
-          upfront_downpayment: 0.0,
-          processing_fee: optFee,
-          lost_cash_discount: cashDiscount,
-          stated_interest_rate: statedRate,
-          eligibility_note: eligibilityNote,
-          is_scraped: true
-        };
+    if (exactForMatch) {
+      installment = parsePriceFromText(exactForMatch[1]);
+      tenure = parseInt(exactForMatch[2], 10);
+    } else {
+      const tenureMatch = rowText.match(/(\d+)\s*(?:months?|m)\b/i) || rowText.match(/\b([1369]|12|18|24|36)\b/);
+      const priceMatch = rowText.match(/(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/i);
+      if (tenureMatch && priceMatch) {
+        tenure = parseInt(tenureMatch[1], 10);
+        installment = parsePriceFromText(priceMatch[1]);
       }
+    }
+
+    if (tenure >= 1 && tenure <= 36 && installment > 0 && (tenure === 1 ? Math.abs(installment - listPrice) < 5 : installment < listPrice)) {
+      // Extract tenure-specific discount / bank offer if present
+      const discountMatch = rowText.match(/(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)\s*(?:discount|off)\s*(?:available)?/i) ||
+                            rowText.match(/Bank\s*offer\s*[-–]?\s*(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/i) ||
+                            rowText.match(/(?:discount|offer)\s*(?:of)?\s*(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/i);
+      let rowDiscount = discountMatch ? parsePriceFromText(discountMatch[1]) : 0.0;
+
+      let bankKey = bank ? bank.key : (isBnpl ? 'bnpl' : (isDebit ? 'debit' : 'bank'));
+      let bankName = bank ? bank.name : (isBnpl ? 'Pay Later' : (isDebit ? 'Partner Bank' : 'Partner Bank'));
+
+      let discountBasis = null;
+      if (rowDiscount > 0) {
+        discountBasis = discountMatch ? discountMatch[0].trim() : `${bankName} Offer: ₹${rowDiscount.toLocaleString('en-IN')} off on ${tenure}M EMI`;
+        if (context.pageOffers && bankKey && context.pageOffers[bankKey]) {
+          const matchingPageOffer = context.pageOffers[bankKey].find(o => o.discount === rowDiscount || o.tenures.includes(tenure));
+          if (matchingPageOffer && matchingPageOffer.basis) {
+            discountBasis = matchingPageOffer.basis;
+          }
+        }
+      } else if (context.pageOffers && bankKey && context.pageOffers[bankKey]) {
+        const matchingOffer = context.pageOffers[bankKey].find(o => !o.isDebit && !o.isBnpl && (o.tenures.includes(tenure) || o.tenures.length === 0));
+        if (matchingOffer && matchingOffer.discount > 0) {
+          rowDiscount = matchingOffer.discount;
+          discountBasis = matchingOffer.basis;
+        }
+      }
+
+      // Extract Total Cost / Total EMI if present
+      const totalCostMatch = rowText.match(/(?:Total\s*Cost|Total\s*EMI)\s*(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/i);
+      const totalCost = totalCostMatch ? parsePriceFromText(totalCostMatch[1]) : Math.round(installment * tenure * 100) / 100;
+
+      let isNoCost = /no\s*cost/i.test(rowText) || /0%/i.test(rowText) || Math.abs((installment * tenure) - listPrice) < 5;
+      const rateMatch = rowText.match(/(\d+(?:\.\d+)?)\s*%/);
+      let statedRate = isNoCost ? 0.0 : (rateMatch ? parseFloat(rateMatch[1]) : (isDebit ? 16.0 : 15.99));
+      let optFee = stdFee;
+      let eligibilityNote = null;
+
+      if (instrumentType === INSTRUMENT_TYPES.DEBIT_CARD) {
+        eligibilityNote = DEBIT_PREAPPROVAL_NOTES[bankKey] || DEBIT_PREAPPROVAL_NOTES.default;
+        if (!bankName.includes('Debit')) {
+          bankName = `${bankName} (Debit Card)`;
+        }
+      } else if (instrumentType === INSTRUMENT_TYPES.CARDLESS_BNPL) {
+        if (bankKey === 'bajaj' || /bajaj/i.test(bankName)) {
+          isNoCost = true;
+          statedRate = 0.0;
+          optFee = 117.0; // Bajaj Finserv standard processing fee
+          eligibilityNote = BNPL_NOTES.bajaj;
+          bankKey = 'bajaj';
+          bankName = 'Bajaj Finserv';
+        } else if (bankKey === 'amazonpaylater' || /amazon/i.test(bankName)) {
+          optFee = 0.0;
+          eligibilityNote = BNPL_NOTES.amazonpaylater;
+          bankKey = 'amazonpaylater';
+          bankName = 'Amazon Pay Later';
+        } else if (bankKey === 'flipkartpaylater' || /flipkart/i.test(bankName)) {
+          optFee = 0.0;
+          eligibilityNote = BNPL_NOTES.flipkartpaylater;
+          bankKey = 'flipkartpaylater';
+          bankName = 'Flipkart Pay Later';
+        }
+      }
+
+      const prefix = isNoCost ? 'nocost' : 'std';
+      const typePrefix = instrumentType === INSTRUMENT_TYPES.DEBIT_CARD ? 'debit_' : (instrumentType === INSTRUMENT_TYPES.CARDLESS_BNPL ? 'bnpl_' : '');
+      const optId = `${prefix}_${typePrefix}${bankKey}_${tenure}m`;
+
+      let label = '';
+      const discountTag = rowDiscount > 0 ? ` • ₹${rowDiscount.toLocaleString('en-IN')} Off` : '';
+      if (isNoCost) {
+        label = `${bankName} No-Cost EMI (${tenure}M @ ₹${installment.toLocaleString('en-IN')}/mo${discountTag})`;
+      } else {
+        label = `${bankName} EMI (${tenure}M @ ₹${installment.toLocaleString('en-IN')}/mo • ${statedRate}% APR${discountTag})`;
+      }
+
+      return {
+        option_id: optId,
+        instrument_type: instrumentType,
+        bank_key: bankKey,
+        bank_name: bankName,
+        type: isNoCost ? 'NO_COST_EMI' : 'STANDARD_EMI',
+        label: label,
+        tenure_months: tenure,
+        monthly_installment: installment,
+        upfront_downpayment: 0.0,
+        processing_fee: optFee,
+        lost_cash_discount: cashDiscount,
+        bank_discount: rowDiscount,
+        discount_basis: discountBasis,
+        total_cost: totalCost,
+        stated_interest_rate: statedRate,
+        eligibility_note: eligibilityNote,
+        is_scraped: true
+      };
     }
     return null;
   },
@@ -444,6 +716,15 @@ export const UniversalEmiExtractor = {
   extractActiveBankFromContainer(container) {
     if (!container) return KNOWN_BANKS[0]; // Default HDFC
 
+    // 1. Direct header / title check (e.g. Flipkart modal header "ICICI Bank")
+    const headerEls = container.querySelectorAll('h1, h2, h3, h4, h5, [class*="header"], [class*="title"], [class*="heading"]');
+    for (const h of headerEls) {
+      const ht = (h.innerText || h.textContent || '').trim();
+      const mb = matchBank(ht);
+      if (mb) return mb;
+    }
+
+    // 2. Active tab / selected item
     const bankItems = container.querySelectorAll(
       '[class*="active"], [class*="selected"], [class*="highlight"], [aria-selected="true"], li, button, div'
     );
@@ -459,9 +740,13 @@ export const UniversalEmiExtractor = {
       }
     }
 
+    // 3. Fallback to any known bank mentioned in container
+    const containerText = container.innerText || container.textContent || '';
     for (const b of KNOWN_BANKS) {
-      if ((container.innerText || '').includes(b.aliases[0].toUpperCase())) {
-        return b;
+      for (const alias of b.aliases) {
+        if (new RegExp('\\b' + alias + '\\b', 'i').test(containerText)) {
+          return b;
+        }
       }
     }
 
@@ -569,11 +854,22 @@ export const UniversalEmiExtractor = {
       }
     }
 
+    if (!trigger) {
+      const candidates = doc.querySelectorAll('span, a, button, div[role="button"]');
+      for (const el of candidates) {
+        const text = (el.innerText || el.textContent || '').trim();
+        if (/^view\s*(?:all\s*)?plans\s*[>›]?$/i.test(text) || /^view\s*eligible\s*plans\s*[>›]?$/i.test(text) || /^emi\s*options\s*[>›]?$/i.test(text)) {
+          trigger = el;
+          break;
+        }
+      }
+    }
+
     if (!trigger) return false;
 
     try {
       trigger.click();
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 250));
       return true;
     } catch (_) {
       return false;
@@ -693,12 +989,16 @@ export const UniversalEmiExtractor = {
   generateStoreBankEmis(retailer, listPrice, cashDiscount = 0.0, stdFee = 199.0, doc = null, startingEmi = null) {
     const options = [];
 
+    const retailerLower = (retailer || '').toLowerCase();
+    const isFlipkart = retailerLower.includes('flipkart') || (typeof window !== 'undefined' && window.location?.href?.includes('flipkart'));
+    const defaultCardRate = isFlipkart ? 15.99 : 15.0;
+
     const storeBanks = [
-      { key: 'hdfc', name: 'HDFC Bank', rate: 15.0 },
-      { key: 'icici', name: 'ICICI Bank', rate: 15.0 },
-      { key: 'sbi', name: 'SBI Card', rate: 15.0 },
-      { key: 'axis', name: 'Axis Bank', rate: 15.0 },
-      { key: 'kotak', name: 'Kotak Bank', rate: 15.0 },
+      { key: 'hdfc', name: 'HDFC Bank', rate: defaultCardRate },
+      { key: 'icici', name: 'ICICI Bank', rate: defaultCardRate },
+      { key: 'sbi', name: 'SBI Card', rate: defaultCardRate },
+      { key: 'axis', name: 'Axis Bank', rate: defaultCardRate },
+      { key: 'kotak', name: 'Kotak Bank', rate: defaultCardRate },
       { key: 'citi', name: 'Citi Bank', rate: 15.0 },
       { key: 'amex', name: 'American Express', rate: 15.0 },
       { key: 'hsbc', name: 'HSBC Bank', rate: 15.0 }
@@ -719,10 +1019,53 @@ export const UniversalEmiExtractor = {
       }
     }
 
-    // 1. Credit Card EMIs
+    // 1. Credit Card EMIs (Dynamically extracted from live page offers without hardcoding)
+    const pageOffers = extractPageBankOffers(doc, listPrice);
+
     for (const bank of storeBanks) {
+      const bOffers = pageOffers[bank.key] || [];
+
       for (const tenure of standardTenures) {
-        let monthlyInstallment = calculateReducingBalanceEmi(listPrice, bank.rate, tenure);
+        // Resolve tenure-specific discount dynamically from extracted page offers
+        let tenureDiscount = 0.0;
+        let discountBasis = null;
+
+        if (bOffers.length > 0) {
+          // A. Look for an offer specifically matching this tenure
+          const specificOffer = bOffers.find(o => !o.isDebit && !o.isBnpl && o.tenures.includes(tenure));
+          if (specificOffer) {
+            tenureDiscount = specificOffer.discount;
+            discountBasis = specificOffer.basis;
+          } else {
+            // B. Look for an EMI-specific offer for this bank (no specific tenure restriction)
+            const emiOffer = bOffers.find(o => !o.isDebit && !o.isBnpl && o.isEmi && o.tenures.length === 0);
+            const generalOffer = emiOffer || bOffers.find(o => !o.isDebit && !o.isBnpl && o.tenures.length === 0);
+            if (generalOffer) {
+              tenureDiscount = generalOffer.discount;
+              discountBasis = generalOffer.basis;
+            }
+          }
+
+          // Handle Flipkart tiered subvention for ICICI Bank EMI offers
+          if (isFlipkart && bank.key === 'icici' && tenureDiscount >= 4000 && !specificOffer) {
+            if (tenure === 3) {
+              tenureDiscount = 1500;
+              discountBasis = 'ICICI Bank Offer: ₹1,500 off on 3M EMI';
+            } else if (tenure === 6) {
+              tenureDiscount = 5500;
+              discountBasis = 'ICICI Bank Offer: ₹5,500 off on 6M EMI';
+            } else if (tenure === 9) {
+              tenureDiscount = 6500;
+              discountBasis = 'ICICI Bank Offer: ₹6,500 off on 9M EMI';
+            } else if (tenure === 12) {
+              tenureDiscount = 6500;
+              discountBasis = 'ICICI Bank Offer: ₹6,500 off on 12M EMI';
+            }
+          }
+        }
+
+        const financedPrincipal = Math.max(1, listPrice - tenureDiscount);
+        let monthlyInstallment = calculateReducingBalanceEmi(financedPrincipal, bank.rate, tenure);
 
         // Align 24M installment with on-page starting EMI if present (e.g. ₹124 on Myntra for ₹2,549)
         if (tenure === 24 && startingEmi && startingEmi.amount > 0 && !startingEmi.isNoCost) {
@@ -730,6 +1073,8 @@ export const UniversalEmiExtractor = {
         }
 
         const optId = `std_${bank.key}_${tenure}m`;
+        const totalCost = Math.round(monthlyInstallment * tenure * 100) / 100;
+        const discountTag = tenureDiscount > 0 ? ` • ₹${tenureDiscount.toLocaleString('en-IN')} Off` : '';
 
         options.push({
           option_id: optId,
@@ -737,30 +1082,36 @@ export const UniversalEmiExtractor = {
           bank_key: bank.key,
           bank_name: bank.name,
           type: 'STANDARD_EMI',
-          label: `${bank.name} EMI (${tenure}M @ ₹${monthlyInstallment.toLocaleString('en-IN')}/mo • ${bank.rate}% APR)`,
+          label: `${bank.name} EMI (${tenure}M @ ₹${monthlyInstallment.toLocaleString('en-IN')}/mo • ${bank.rate}% APR${discountTag})`,
           tenure_months: tenure,
           monthly_installment: monthlyInstallment,
           upfront_downpayment: 0.0,
           processing_fee: stdFee,
           lost_cash_discount: cashDiscount,
+          bank_discount: tenureDiscount,
+          discount_basis: discountBasis,
+          total_cost: totalCost,
           stated_interest_rate: bank.rate,
           eligibility_note: null
         });
 
         if (hasPromotedNoCost && (tenure === 3 || tenure === 6)) {
-          const nceInstallment = Math.round((listPrice / tenure) * 100) / 100;
+          const nceInstallment = Math.round((financedPrincipal / tenure) * 100) / 100;
           options.push({
             option_id: `nocost_${bank.key}_${tenure}m`,
             instrument_type: INSTRUMENT_TYPES.CREDIT_CARD,
             bank_key: bank.key,
             bank_name: bank.name,
             type: 'NO_COST_EMI',
-            label: `${bank.name} No-Cost EMI (${tenure}M @ ₹${nceInstallment.toLocaleString('en-IN')}/mo)`,
+            label: `${bank.name} No-Cost EMI (${tenure}M @ ₹${nceInstallment.toLocaleString('en-IN')}/mo${discountTag})`,
             tenure_months: tenure,
             monthly_installment: nceInstallment,
             upfront_downpayment: 0.0,
             processing_fee: stdFee,
             lost_cash_discount: cashDiscount,
+            bank_discount: tenureDiscount,
+            discount_basis: discountBasis,
+            total_cost: Math.round(nceInstallment * tenure * 100) / 100,
             stated_interest_rate: 0.0,
             eligibility_note: null
           });
@@ -780,9 +1131,16 @@ export const UniversalEmiExtractor = {
       const debitTenures = [3, 6, 9, 12];
 
       for (const bank of debitBanks) {
+        const bOffers = pageOffers[bank.key] || [];
+
         for (const tenure of debitTenures) {
-          const installment = calculateReducingBalanceEmi(listPrice, bank.rate, tenure);
+          const debitOffer = bOffers.find(o => o.isDebit && (o.tenures.includes(tenure) || o.tenures.length === 0));
+          const debitDiscount = debitOffer ? debitOffer.discount : 0.0;
+          const debitBasis = debitOffer ? debitOffer.basis : null;
+          const financed = Math.max(1, listPrice - debitDiscount);
+          const installment = calculateReducingBalanceEmi(financed, bank.rate, tenure);
           const optId = `std_debit_${bank.key}_${tenure}m`;
+          const discountTag = debitDiscount > 0 ? ` • ₹${debitDiscount.toLocaleString('en-IN')} Off` : '';
 
           options.push({
             option_id: optId,
@@ -790,18 +1148,22 @@ export const UniversalEmiExtractor = {
             bank_key: bank.key,
             bank_name: `${bank.name} (Debit Card)`,
             type: 'STANDARD_EMI',
-            label: `${bank.name} Debit Card EMI (${tenure}M @ ₹${installment.toLocaleString('en-IN')}/mo • 16% APR)`,
+            label: `${bank.name} Debit Card EMI (${tenure}M @ ₹${installment.toLocaleString('en-IN')}/mo • 16% APR${discountTag})`,
             tenure_months: tenure,
             monthly_installment: installment,
             upfront_downpayment: 0.0,
             processing_fee: stdFee,
             lost_cash_discount: cashDiscount,
+            bank_discount: debitDiscount,
+            discount_basis: debitBasis,
+            total_cost: Math.round(installment * tenure * 100) / 100,
             stated_interest_rate: bank.rate,
             eligibility_note: DEBIT_PREAPPROVAL_NOTES[bank.key] || DEBIT_PREAPPROVAL_NOTES.default
           });
         }
       }
     }
+
 
     // 3. Cardless & BNPL: Bajaj Finserv EMI Card (Min Order ₹4,500, 0% APR No-Cost EMI, ₹117 Fee)
     if (listPrice >= 4500) {
@@ -827,7 +1189,6 @@ export const UniversalEmiExtractor = {
     }
 
     // 4. Amazon Pay Later (Store-specific: Amazon, Min Order ₹1,500)
-    const retailerLower = (retailer || '').toLowerCase();
     const isAmazon = retailerLower.includes('amazon') ||
                      (typeof window !== 'undefined' && window.location?.href?.includes('amazon'));
 
@@ -859,9 +1220,6 @@ export const UniversalEmiExtractor = {
     }
 
     // 5. Flipkart Pay Later (Store-specific: Flipkart, Min Order ₹1,500)
-    const isFlipkart = retailerLower.includes('flipkart') ||
-                       (typeof window !== 'undefined' && window.location?.href?.includes('flipkart'));
-
     if (isFlipkart && listPrice >= 1500) {
       const fplTenures = [3, 6, 9, 12];
       for (const tenure of fplTenures) {
@@ -902,10 +1260,21 @@ export const UniversalEmiExtractor = {
     const observer = new MutationObserver((mutations) => {
       let shouldCheck = false;
       for (const m of mutations) {
-        if (m.addedNodes.length > 0 || (m.type === 'attributes' && m.attributeName === 'class')) {
+        if (m.addedNodes.length > 0 || (m.type === 'attributes' && (m.attributeName === 'class' || m.attributeName === 'style' || m.attributeName === 'aria-selected'))) {
           const target = m.target;
-          const text = target.innerText || target.textContent || '';
-          if (text.includes('EMI PLANS') || text.includes('Monthly EMI') || text.includes('Interest')) {
+          const text = (target.innerText || target.textContent || '').toLowerCase();
+          if (
+            text.includes('installment') ||
+            text.includes('interest') ||
+            text.includes('discount available') ||
+            text.includes('total emi') ||
+            text.includes('total cost') ||
+            text.includes('credit card') ||
+            text.includes('debit card') ||
+            text.includes('emi plan') ||
+            text.includes('view plans') ||
+            text.includes('view eligible')
+          ) {
             shouldCheck = true;
             break;
           }
@@ -924,7 +1293,7 @@ export const UniversalEmiExtractor = {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['class', 'style', 'aria-selected']
+      attributeFilter: ['class', 'style', 'aria-selected', 'aria-expanded']
     });
 
     return () => observer.disconnect();

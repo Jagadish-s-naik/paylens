@@ -197,7 +197,7 @@
   transition: all 0.15s ease;
   line-height: 1;
 }
-
+ 
 .btn-close-panel:hover {
   background: rgba(239, 68, 68, 0.2);
   border-color: #ef4444;
@@ -1061,5 +1061,178 @@
   font-size: 0.6875rem;
   color: #475569;
   line-height: 1.35;
+}
+
+/* ============================================================================
+   Real-Time EMI Discount & Financing Breakdown Card
+   ============================================================================ */
+.emi-discount-breakdown-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.discount-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.discount-pill-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.discount-tag-badge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  letter-spacing: -0.01em;
+}
+
+.discount-tag-badge.has-discount {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.discount-tag-badge.no-discount {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.discount-save-tag {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #059669;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.discount-tenure-badge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #64748b;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.discount-basis-box {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-left: 3px solid #16a34a;
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin: 6px 0 8px 0;
+}
+
+.basis-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.basis-icon {
+  font-size: 0.75rem;
+}
+
+.basis-title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #166534;
+}
+
+.basis-desc {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #14532d;
+  line-height: 1.35;
+  margin: 2px 0 0 0;
+}
+
+.financing-summary-table {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.75rem;
+}
+
+.summary-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #475569;
+}
+
+.summary-label {
+  font-size: 0.6875rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.summary-val {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.summary-line.discount-line .summary-label {
+  color: #047857;
+  font-weight: 600;
+}
+
+.summary-line.discount-line .discount-val {
+  color: #059669;
+  font-weight: 800;
+}
+
+.summary-line.financed-principal-line {
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 4px;
+}
+
+.summary-line.financed-principal-line .summary-label {
+  font-weight: 700;
+  color: #334155;
+}
+
+.summary-line.financed-principal-line .financed-val {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.summary-line.emi-rate-line .emi-val {
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.summary-line.total-outflow-line {
+  border-top: 1px solid #cbd5e1;
+  padding-top: 5px;
+  margin-top: 2px;
+}
+
+.summary-line.total-outflow-line .summary-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.summary-line.total-outflow-line .total-val {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: #0f172a;
 }
 

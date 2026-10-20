@@ -205,4 +205,110 @@ console.log('--- TEST 10: DOM / Table Row parsing for Debit Card & BNPL rows ---
   console.log('✓ TEST 10 PASSED: DOM rows for Debit and BNPL parsed accurately.');
 }
 
+console.log('--- TEST 11: Real Flipkart ICICI Bank Modal DOM parsing matches exact screenshot ---');
+{
+  const mockFlipkartModal = {
+    innerText: 'ICICI Bank Credit Card Installment Interest',
+    querySelectorAll: (sel) => {
+      if (sel.includes('header') || sel.includes('h1') || sel.includes('h2') || sel.includes('h3')) {
+        return [{ innerText: 'ICICI Bank' }];
+      }
+      if (sel.includes('radio') || sel.includes('row') || sel.includes('item') || sel.includes('label')) {
+        return [
+          {
+            innerText: '₹14,756 for 6 months\n15.99% p.a.\n₹5,500 discount available\nPrice (1 item) ₹90,049\nInterest amount (@16% interest) ₹3,987\nBank offer -₹5,500\nTotal Cost ₹88,536\nTotal EMI ₹88,536\nApply'
+          },
+          {
+            innerText: '₹9,913 for 9 months\n15.99% p.a.\n₹6,500 discount available'
+          },
+          {
+            innerText: '₹30,306 for 3 months\n15.99% p.a.\n₹1,500 discount available'
+          },
+          {
+            innerText: '₹7,580 for 12 months\n15.99% p.a.\n₹6,500 discount available'
+          }
+        ];
+      }
+      return [];
+    }
+  };
+
+  const parsed = UniversalEmiExtractor.parseTableRowsFromContainer(mockFlipkartModal, 90049, 0, 199);
+  assert.strictEqual(parsed.length, 4, 'Should extract all 4 Flipkart tenure options');
+
+  const opt6m = parsed.find(o => o.tenure_months === 6);
+  assert.ok(opt6m, '6 Months option should exist');
+  assert.strictEqual(opt6m.bank_key, 'icici', 'Bank should be ICICI');
+  assert.strictEqual(opt6m.monthly_installment, 14756, 'Installment must match exact Flipkart rupee ₹14,756');
+  assert.strictEqual(opt6m.stated_interest_rate, 15.99, 'APR must match exact 15.99%');
+  assert.strictEqual(opt6m.bank_discount, 5500, 'Bank discount should be ₹5,500');
+  assert.strictEqual(opt6m.total_cost, 88536, 'Total cost should be ₹88,536');
+
+  const opt9m = parsed.find(o => o.tenure_months === 9);
+  assert.strictEqual(opt9m.monthly_installment, 9913, '9M installment must be ₹9,913');
+  assert.strictEqual(opt9m.bank_discount, 6500, '9M discount should be ₹6,500');
+
+  const opt3m = parsed.find(o => o.tenure_months === 3);
+  assert.strictEqual(opt3m.monthly_installment, 30306, '3M installment must be ₹30,306');
+  assert.strictEqual(opt3m.bank_discount, 1500, '3M discount should be ₹1,500');
+
+  const opt12m = parsed.find(o => o.tenure_months === 12);
+  assert.strictEqual(opt12m.monthly_installment, 7580, '12M installment must be ₹7,580');
+  assert.strictEqual(opt12m.bank_discount, 6500, '12M discount should be ₹6,500');
+
+  console.log('✓ TEST 11 PASSED: Flipkart ICICI Bank modal parsed with 100% exact rupee precision.');
+}
+
+console.log('--- TEST 12: Tenure discount reducing balance math verification ---');
+{
+  const basePrice = 90049;
+  const rate = 15.99;
+
+  // 3M: Discount 1,500 -> Principal 88,549
+  const emi3 = calculateReducingBalanceEmi(basePrice - 1500, rate, 3);
+  assert.strictEqual(emi3, 30306, '3M EMI with ₹1,500 discount must be 30,306');
+
+  // 6M: Discount 5,500 -> Principal 84,549
+  const emi6 = calculateReducingBalanceEmi(basePrice - 5500, rate, 6);
+  assert.strictEqual(emi6, 14756, '6M EMI with ₹5,500 discount must be 14,756');
+
+  // 9M: Discount 6,500 -> Principal 83,549
+  const emi9 = calculateReducingBalanceEmi(basePrice - 6500, rate, 9);
+  assert.strictEqual(emi9, 9913, '9M EMI with ₹6,500 discount must be 9,913');
+
+  // 12M: Discount 6,500 -> Principal 83,549
+  const emi12 = calculateReducingBalanceEmi(basePrice - 6500, rate, 12);
+  assert.strictEqual(emi12, 7580, '12M EMI with ₹6,500 discount must be 7,580');
+
+  console.log('✓ TEST 12 PASSED: Mathematical reducing-balance subvention matches Flipkart to the exact rupee.');
+}
+
+console.log('--- TEST 13: Closed-modal PDP bank offer subvention matches Flipkart to the rupee ---');
+{
+  const mockPdpDoc = {
+    body: {
+      innerText: 'Flipkart Product. Available offers: Bank Offer Flat ₹5,500 off on ICICI Bank Credit Card EMI Transactions'
+    },
+    querySelectorAll: () => []
+  };
+
+  const emis = UniversalEmiExtractor.generateStoreBankEmis('Flipkart', 90049, 0, 199, mockPdpDoc);
+  const icici6m = emis.find(o => o.option_id === 'std_icici_6m');
+  assert.ok(icici6m, 'ICICI 6M option should exist');
+  assert.strictEqual(icici6m.monthly_installment, 14756, '6M EMI without modal open must be ₹14,756');
+  assert.strictEqual(icici6m.stated_interest_rate, 15.99, 'APR should be 15.99%');
+  assert.strictEqual(icici6m.bank_discount, 5500, 'Discount should be ₹5,500');
+
+  const icici9m = emis.find(o => o.option_id === 'std_icici_9m');
+  assert.strictEqual(icici9m.monthly_installment, 9913, '9M EMI without modal open must be ₹9,913');
+
+  const icici3m = emis.find(o => o.option_id === 'std_icici_3m');
+  assert.strictEqual(icici3m.monthly_installment, 30306, '3M EMI without modal open must be ₹30,306');
+
+  const icici12m = emis.find(o => o.option_id === 'std_icici_12m');
+  assert.strictEqual(icici12m.monthly_installment, 7580, '12M EMI without modal open must be ₹7,580');
+
+  console.log('✓ TEST 13 PASSED: Even when modal is closed, PDP ICICI Bank EMI matches Flipkart exactly.');
+}
+
 console.log('--- ALL EMI EXTRACTION UNIT TESTS PASSED ---');

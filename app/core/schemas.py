@@ -119,6 +119,9 @@ class PaymentOption(BaseModel):
     bank_key: Optional[str] = Field(None, description="Provider/Bank key slug, e.g. 'hdfc', 'bajaj'")
     bank_name: Optional[str] = Field(None, description="Provider/Bank display name, e.g. 'HDFC Bank', 'Amazon Pay Later'")
     eligibility_note: Optional[str] = Field(None, description="Pre-approval / eligibility note if applicable")
+    bank_discount: Optional[float] = Field(0.0, description="Direct bank discount/subvention applied to this specific EMI plan (INR)")
+    discount_basis: Optional[str] = Field(None, description="The rationale, offer title, or text basis on which this discount is applied")
+    total_cost: Optional[float] = Field(None, description="Final total amount outflow after discount (INR)")
 
 class Listing(BaseModel):
     product_id: str

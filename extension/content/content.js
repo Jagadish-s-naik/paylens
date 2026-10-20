@@ -85,7 +85,8 @@ import { UniversalEmiExtractor } from './emi_extractor.js';
     card.mount(mountPoint);
 
     currentListing = listing;
-    const evaluationKey = `${listing.product_id}:${selectedOptionId}`;
+    const activeOptObj = listing.payment_options?.find(o => o.option_id === selectedOptionId);
+    const evaluationKey = `${listing.product_id}:${selectedOptionId}:${activeOptObj?.monthly_installment}:${activeOptObj?.bank_discount}`;
     if (evaluationKey === lastEvaluationKey) {
       return; // Deduplicate
     }

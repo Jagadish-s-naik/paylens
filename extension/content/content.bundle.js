@@ -508,6 +508,96 @@
     }
     return null;
   }
+  function extractPageBankOffers(doc, listPrice) {
+    const bankOffers = {};
+    if (!doc || !listPrice || listPrice <= 0) return bankOffers;
+    const candidateTexts = /* @__PURE__ */ new Set();
+    if (typeof doc.querySelectorAll === "function") {
+      const offerNodes = doc.querySelectorAll(
+        'div.x-r2QD, div._3Ay6Sb, div.UkUFwK, li._16eBzU, div._2teBhd, div._3j4G2b, div._3XINqE, div.row._3q9YpE, div._29jN3X, div._3eA9m-, #item_offers_list li, #sopp_feature_div li, .offers-items li, .pdp-offers li, .product-offers li, .bank-offers-list li, [class*="bank-offer"], [class*="offer-item"], [class*="OfferItem"], div.cp-offers, div.M8-xIr, div.Bv11UC, .offers-strip, .offer-text, [data-testid*="offer"], .pdp-offers'
+      );
+      for (const node of offerNodes) {
+        const txt = (node.innerText || node.textContent || "").trim();
+        if (txt.length >= 8 && (txt.includes("\u20B9") || txt.includes("Rs") || txt.includes("INR") || txt.includes("%") || /off|discount/i.test(txt))) {
+          candidateTexts.add(txt);
+        }
+      }
+    }
+    const bodyText = (doc.body ? doc.body.innerText : "") || (typeof document !== "undefined" ? document.body?.innerText || "" : "");
+    if (bodyText) {
+      const lines = bodyText.split(/\n+/);
+      for (const l of lines) {
+        const line = l.trim();
+        if ((line.includes("Bank Offer") || line.includes("Instant Discount") || line.includes("Credit Card EMI") || line.includes("Debit Card EMI") || line.includes("Special Price")) && (line.includes("\u20B9") || line.includes("Rs") || line.includes("INR") || line.includes("%"))) {
+          candidateTexts.add(line);
+        }
+      }
+    }
+    for (const rawText of candidateTexts) {
+      const bank = matchBank(rawText);
+      if (!bank) continue;
+      const bKey = bank.key;
+      const isDebit = /debit\s*card|debit\s*emi|\bdebit\b/i.test(rawText);
+      const isBnpl = /pay\s*later|bajaj/i.test(rawText) || Boolean(bank.isBnpl);
+      const minOrderMatch = rawText.match(/(?:orders|orders\s*of|minimum\s*purchase|min\s*order|orders\s*above)[^\n.]*?(?:₹|Rs\.?|INR)\s*([0-9]+(?:,[0-9]+)*)/i);
+      if (minOrderMatch) {
+        const minOrder = parsePriceFromText(minOrderMatch[1]);
+        if (minOrder > 0 && listPrice < minOrder) {
+          continue;
+        }
+      }
+      let discount = 0;
+      const pctMatch = rawText.match(/(\d+(?:\.\d+)?)\s*%\s*(?:instant\s*discount|off)?[^\n.]*?(?:up\s*to|max)\s*(?:₹|Rs\.?|INR)?\s*([0-9]+(?:,[0-9]+)*)/i);
+      if (pctMatch) {
+        const pct = parseFloat(pctMatch[1]);
+        const cap = parsePriceFromText(pctMatch[2]);
+        if (pct > 0 && cap > 0) {
+          discount = Math.min(Math.round(listPrice * (pct / 100)), cap);
+        }
+      }
+      if (discount <= 0) {
+        const flatMatch = rawText.match(/(?:Flat|Extra|Instant)?\s*(?:₹|Rs\.?|INR)\s*([0-9]+(?:,[0-9]+)*)\s*(?:off|discount|instant\s*discount)/i) || rawText.match(/(?:discount|offer)\s*(?:available|of)?\s*(?:₹|Rs\.?|INR)?\s*([0-9]+(?:,[0-9]+)*)/i) || rawText.match(/(?:₹|Rs\.?|INR)\s*([0-9]+(?:,[0-9]+)*)\s*(?:off|discount|instant\s*discount)/i);
+        if (flatMatch) {
+          discount = parsePriceFromText(flatMatch[1]);
+        }
+      }
+      if (discount <= 0 || discount >= listPrice * 0.5) {
+        continue;
+      }
+      const tenures = [];
+      const rangeMatch = rawText.match(/(\d+)\s*(?:and|&|,|-)\s*(\d+)\s*(?:months?|m)\b/i);
+      if (rangeMatch) {
+        tenures.push(parseInt(rangeMatch[1], 10));
+        tenures.push(parseInt(rangeMatch[2], 10));
+      }
+      const singleMatches = rawText.matchAll(/(\d+)\s*(?:months?|m)\b/gi);
+      for (const sm of singleMatches) {
+        const val = parseInt(sm[1], 10);
+        if (!tenures.includes(val)) tenures.push(val);
+      }
+      const isEmi = /emi\b|installment/i.test(rawText);
+      let basis = rawText.split("\n")[0].trim().replace(/\s*T&C\s*$/i, "");
+      if (basis.length > 85) {
+        basis = basis.slice(0, 82) + "...";
+      }
+      if (!bankOffers[bKey]) bankOffers[bKey] = [];
+      bankOffers[bKey].push({
+        discount,
+        basis,
+        tenures,
+        isDebit,
+        isBnpl,
+        isEmi
+      });
+    }
+    for (const k of Object.keys(bankOffers)) {
+      bankOffers[k].sort((a, b) => {
+        if (a.isEmi !== b.isEmi) return a.isEmi ? -1 : 1;
+        return b.discount - a.discount;
+      });
+    }
+    return bankOffers;
+  }
   var hasAttemptedLazyModalTrigger = false;
   var UniversalEmiExtractor = {
     /**
@@ -569,15 +659,16 @@
     extractDomEmis(doc, listPrice, cashDiscount = 0, stdFee = 199) {
       const options = [];
       if (!doc) return options;
+      const pageOffers = extractPageBankOffers(doc, listPrice);
       const containers = doc.querySelectorAll(
-        '[role="dialog"], [class*="modal"], [class*="drawer"], [class*="popup"], [id*="modal"], [id*="drawer"], [id*="emi"], .pdp-emiOption, .emi-details, #inemi_feature_div, table'
+        '[role="dialog"], [class*="modal" i], [class*="drawer" i], [class*="popup" i], [class*="overlay" i], div._10Ermr, div._2rQPcW, div._1k9_yB, div[class*="_overlay"], [id*="modal" i], [id*="drawer" i], [id*="emi" i], .pdp-emiOption, .emi-details, #inemi_feature_div, table'
       );
       for (const container of containers) {
         const text = container.innerText || container.textContent || "";
-        if (!text.includes("EMI") && !text.includes("Installment") && !text.includes("Interest") && !text.includes("Plans")) {
+        if (!text.includes("EMI") && !text.includes("Installment") && !text.includes("Interest") && !text.includes("Plans") && !text.includes("Credit Card") && !text.includes("Debit Card")) {
           continue;
         }
-        const parsed = this.parseTableRowsFromContainer(container, listPrice, cashDiscount, stdFee);
+        const parsed = this.parseTableRowsFromContainer(container, listPrice, cashDiscount, stdFee, pageOffers);
         for (const opt of parsed) {
           if (!options.some((o) => o.option_id === opt.option_id)) {
             options.push(opt);
@@ -589,19 +680,20 @@
     /**
      * Parses table rows or structured items inside a container, resolving bank context.
      */
-    parseTableRowsFromContainer(container, listPrice, cashDiscount, stdFee) {
+    parseTableRowsFromContainer(container, listPrice, cashDiscount, stdFee, pageOffers = {}) {
       const options = [];
       if (!container) return options;
       const containerText = (container.innerText || container.textContent || "").toLowerCase();
       const isContainerDebit = /debit\s*card|debit\s*emi/i.test(containerText);
       const isContainerBnpl = /pay\s*later|bajaj/i.test(containerText);
+      const rowSelector = 'tr, [class*="row"], [class*="item"], li, label:has(input[type="radio"]), div:has(> input[type="radio"]), [role="radio"], [class*="radio"], div[class*="Option"], div[class*="option"], div[class*="plan-card"], div[class*="planCard"]';
       const bankSections = container.querySelectorAll('[data-bank], .a-box, [class*="bank-plan"], [class*="bank-section"], [class*="accordion-row"]');
       if (bankSections.length > 0) {
         for (const section of bankSections) {
           let bank = null;
-          const bankAttr = section.getAttribute("data-bank");
+          const bankAttr = typeof section.getAttribute === "function" ? section.getAttribute("data-bank") : null;
           if (bankAttr) bank = matchBank(bankAttr);
-          const headerEl = section.querySelector("h3, h4, h5, .title, .header, strong, th");
+          const headerEl = typeof section.querySelector === "function" ? section.querySelector("h1, h2, h3, h4, h5, .title, .header, strong, th") : null;
           const headerText = headerEl ? headerEl.innerText || headerEl.textContent || "" : "";
           const sectionText = section.innerText || section.textContent || "";
           if (!bank && headerEl) {
@@ -612,11 +704,12 @@
           }
           const isSectionDebit = /debit\s*card|debit\s*emi|\bdebit\b/i.test(headerText || sectionText);
           const isSectionBnpl = /pay\s*later|bajaj|\bbnpl\b/i.test(headerText || sectionText);
-          const rows2 = section.querySelectorAll('tr, [class*="row"], [class*="item"], li');
+          const rows2 = typeof section.querySelectorAll === "function" ? section.querySelectorAll(rowSelector) : [];
           for (const row of rows2) {
             const opt = this.parseRowToOption(row, bank, listPrice, cashDiscount, stdFee, {
               isDebit: isSectionDebit || isContainerDebit,
-              isBnpl: isSectionBnpl || isContainerBnpl
+              isBnpl: isSectionBnpl || isContainerBnpl,
+              pageOffers
             });
             if (opt && !options.some((o) => o.option_id === opt.option_id)) {
               options.push(opt);
@@ -628,14 +721,84 @@
         }
       }
       const activeBank = this.extractActiveBankFromContainer(container);
-      const rows = container.querySelectorAll('tr, [class*="row"], [class*="item"], li');
+      const rows = container.querySelectorAll(rowSelector);
       for (const row of rows) {
         const opt = this.parseRowToOption(row, activeBank, listPrice, cashDiscount, stdFee, {
           isDebit: isContainerDebit,
-          isBnpl: isContainerBnpl
+          isBnpl: isContainerBnpl,
+          pageOffers
         });
         if (opt && !options.some((o) => o.option_id === opt.option_id)) {
           options.push(opt);
+        }
+      }
+      const rawText = container.innerText || container.textContent || "";
+      const chunkRegex = /(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)\s*(?:\/mo|\/month)?\s*for\s*(\d+)\s*(?:months?|m)\b/gi;
+      const textMatches = [];
+      let tm;
+      while ((tm = chunkRegex.exec(rawText)) !== null) {
+        textMatches.push({
+          index: tm.index,
+          installment: parsePriceFromText(tm[1]),
+          tenure: parseInt(tm[2], 10)
+        });
+      }
+      if (textMatches.length > 0) {
+        for (let i = 0; i < textMatches.length; i++) {
+          const item = textMatches[i];
+          const nextIdx = textMatches[i + 1] ? textMatches[i + 1].index : item.index + 500;
+          const chunk = rawText.slice(item.index, nextIdx);
+          const discountMatch = chunk.match(/(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)\s*(?:discount|off)/i) || chunk.match(/Bank\s*offer\s*[-–]?\s*(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/i) || chunk.match(/(?:discount|offer)\s*(?:of)?\s*(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/i);
+          const rowDiscount = discountMatch ? parsePriceFromText(discountMatch[1]) : 0;
+          const rateMatch = chunk.match(/(\d+(?:\.\d+)?)\s*%/);
+          const statedRate = rateMatch ? parseFloat(rateMatch[1]) : isContainerDebit ? 16 : 15.99;
+          const tcMatch = chunk.match(/(?:Total\s*Cost|Total\s*EMI)\s*(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/i);
+          const totalCost = tcMatch ? parsePriceFromText(tcMatch[1]) : Math.round(item.installment * item.tenure * 100) / 100;
+          const isDebit = isContainerDebit || /debit/i.test(chunk);
+          const isBnpl = isContainerBnpl || /pay\s*later|bajaj/i.test(chunk);
+          const isNoCost = /no\s*cost/i.test(chunk) || /0%/i.test(chunk) || Math.abs(item.installment * item.tenure - listPrice) < 5;
+          let bankKey = activeBank ? activeBank.key : isBnpl ? "bnpl" : isDebit ? "debit" : "bank";
+          let bankName = activeBank ? activeBank.name : isBnpl ? "Pay Later" : isDebit ? "Partner Bank" : "Partner Bank";
+          const prefix = isNoCost ? "nocost" : "std";
+          const typePrefix = isDebit ? "debit_" : isBnpl ? "bnpl_" : "";
+          const optId = `${prefix}_${typePrefix}${bankKey}_${item.tenure}m`;
+          let chunkDiscountBasis = null;
+          if (rowDiscount > 0) {
+            chunkDiscountBasis = discountMatch ? discountMatch[0].trim() : `${bankName} Offer: \u20B9${rowDiscount.toLocaleString("en-IN")} off on ${item.tenure}M EMI`;
+            if (pageOffers && bankKey && pageOffers[bankKey]) {
+              const matchingOffer = pageOffers[bankKey].find((o) => o.discount === rowDiscount || o.tenures.includes(item.tenure));
+              if (matchingOffer && matchingOffer.basis) {
+                chunkDiscountBasis = matchingOffer.basis;
+              }
+            }
+          }
+          const discountTag = rowDiscount > 0 ? ` \u2022 \u20B9${rowDiscount.toLocaleString("en-IN")} Off` : "";
+          const label = isNoCost ? `${bankName} No-Cost EMI (${item.tenure}M @ \u20B9${item.installment.toLocaleString("en-IN")}/mo${discountTag})` : `${bankName} EMI (${item.tenure}M @ \u20B9${item.installment.toLocaleString("en-IN")}/mo \u2022 ${statedRate}% APR${discountTag})`;
+          const textOpt = {
+            option_id: optId,
+            instrument_type: isDebit ? INSTRUMENT_TYPES.DEBIT_CARD : isBnpl ? INSTRUMENT_TYPES.CARDLESS_BNPL : INSTRUMENT_TYPES.CREDIT_CARD,
+            bank_key: bankKey,
+            bank_name: bankName,
+            type: isNoCost ? "NO_COST_EMI" : "STANDARD_EMI",
+            label,
+            tenure_months: item.tenure,
+            monthly_installment: item.installment,
+            upfront_downpayment: 0,
+            processing_fee: stdFee,
+            lost_cash_discount: cashDiscount,
+            bank_discount: rowDiscount,
+            discount_basis: chunkDiscountBasis,
+            total_cost: totalCost,
+            stated_interest_rate: isNoCost ? 0 : statedRate,
+            eligibility_note: isDebit ? DEBIT_PREAPPROVAL_NOTES[bankKey] || DEBIT_PREAPPROVAL_NOTES.default : null,
+            is_scraped: true
+          };
+          const existingIdx = options.findIndex((o) => o.option_id === optId);
+          if (existingIdx === -1) {
+            options.push(textOpt);
+          } else if (rowDiscount > 0 && (!options[existingIdx].bank_discount || options[existingIdx].bank_discount <= 0)) {
+            options[existingIdx] = textOpt;
+          }
         }
       }
       return options;
@@ -645,8 +808,8 @@
      */
     parseRowToOption(row, defaultBank, listPrice, cashDiscount, stdFee, context = {}) {
       if (!row) return null;
-      const rowText = row.innerText || row.textContent || "";
-      if (/tenure|months|duration/i.test(rowText) && /overall cost|interest rate|plan/i.test(rowText)) {
+      const rowText = (row.innerText || row.textContent || "").trim();
+      if (/tenure|months|duration/i.test(rowText) && /overall cost|interest rate|plan/i.test(rowText) && !/₹|Rs\.?/i.test(rowText)) {
         return null;
       }
       let bank = defaultBank;
@@ -665,70 +828,102 @@
       } else if (isBnpl) {
         instrumentType = INSTRUMENT_TYPES.CARDLESS_BNPL;
       }
-      const tenureMatch = rowText.match(/(\d+)\s*(?:months?|m)\b/i) || rowText.match(/\b([1369]|12|18|24|36)\b/);
-      const priceMatch = rowText.match(/(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/i);
-      if (tenureMatch && priceMatch) {
-        const tenure = parseInt(tenureMatch[1], 10);
-        const installment = parsePriceFromText(priceMatch[1]);
-        if (tenure >= 1 && tenure <= 36 && installment > 0 && (tenure === 1 ? Math.abs(installment - listPrice) < 5 : installment < listPrice)) {
-          let isNoCost = /no\s*cost/i.test(rowText) || /0%/i.test(rowText) || Math.abs(installment * tenure - listPrice) < 5;
-          const rateMatch = rowText.match(/(\d+(?:\.\d+)?)\s*%/);
-          let statedRate = isNoCost ? 0 : rateMatch ? parseFloat(rateMatch[1]) : isDebit ? 16 : 15;
-          let bankKey = bank ? bank.key : isBnpl ? "bnpl" : isDebit ? "debit" : "bank";
-          let bankName = bank ? bank.name : isBnpl ? "Pay Later" : isDebit ? "Partner Bank" : "Partner Bank";
-          let optFee = stdFee;
-          let eligibilityNote = null;
-          if (instrumentType === INSTRUMENT_TYPES.DEBIT_CARD) {
-            eligibilityNote = DEBIT_PREAPPROVAL_NOTES[bankKey] || DEBIT_PREAPPROVAL_NOTES.default;
-            if (!bankName.includes("Debit")) {
-              bankName = `${bankName} (Debit Card)`;
-            }
-          } else if (instrumentType === INSTRUMENT_TYPES.CARDLESS_BNPL) {
-            if (bankKey === "bajaj" || /bajaj/i.test(bankName)) {
-              isNoCost = true;
-              statedRate = 0;
-              optFee = 117;
-              eligibilityNote = BNPL_NOTES.bajaj;
-              bankKey = "bajaj";
-              bankName = "Bajaj Finserv";
-            } else if (bankKey === "amazonpaylater" || /amazon/i.test(bankName)) {
-              optFee = 0;
-              eligibilityNote = BNPL_NOTES.amazonpaylater;
-              bankKey = "amazonpaylater";
-              bankName = "Amazon Pay Later";
-            } else if (bankKey === "flipkartpaylater" || /flipkart/i.test(bankName)) {
-              optFee = 0;
-              eligibilityNote = BNPL_NOTES.flipkartpaylater;
-              bankKey = "flipkartpaylater";
-              bankName = "Flipkart Pay Later";
-            }
-          }
-          const prefix = isNoCost ? "nocost" : "std";
-          const typePrefix = instrumentType === INSTRUMENT_TYPES.DEBIT_CARD ? "debit_" : instrumentType === INSTRUMENT_TYPES.CARDLESS_BNPL ? "bnpl_" : "";
-          const optId = `${prefix}_${typePrefix}${bankKey}_${tenure}m`;
-          let label = "";
-          if (isNoCost) {
-            label = `${bankName} No-Cost EMI (${tenure}M @ \u20B9${installment.toLocaleString("en-IN")}/mo)`;
-          } else {
-            label = `${bankName} EMI (${tenure}M @ \u20B9${installment.toLocaleString("en-IN")}/mo \u2022 ${statedRate}% APR)`;
-          }
-          return {
-            option_id: optId,
-            instrument_type: instrumentType,
-            bank_key: bankKey,
-            bank_name: bankName,
-            type: isNoCost ? "NO_COST_EMI" : "STANDARD_EMI",
-            label,
-            tenure_months: tenure,
-            monthly_installment: installment,
-            upfront_downpayment: 0,
-            processing_fee: optFee,
-            lost_cash_discount: cashDiscount,
-            stated_interest_rate: statedRate,
-            eligibility_note: eligibilityNote,
-            is_scraped: true
-          };
+      const exactForMatch = rowText.match(/(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)\s*(?:\/mo|\/month)?\s*for\s*(\d+)\s*(?:months?|m)\b/i);
+      let tenure = 0;
+      let installment = 0;
+      if (exactForMatch) {
+        installment = parsePriceFromText(exactForMatch[1]);
+        tenure = parseInt(exactForMatch[2], 10);
+      } else {
+        const tenureMatch = rowText.match(/(\d+)\s*(?:months?|m)\b/i) || rowText.match(/\b([1369]|12|18|24|36)\b/);
+        const priceMatch = rowText.match(/(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/i);
+        if (tenureMatch && priceMatch) {
+          tenure = parseInt(tenureMatch[1], 10);
+          installment = parsePriceFromText(priceMatch[1]);
         }
+      }
+      if (tenure >= 1 && tenure <= 36 && installment > 0 && (tenure === 1 ? Math.abs(installment - listPrice) < 5 : installment < listPrice)) {
+        const discountMatch = rowText.match(/(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)\s*(?:discount|off)\s*(?:available)?/i) || rowText.match(/Bank\s*offer\s*[-–]?\s*(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/i) || rowText.match(/(?:discount|offer)\s*(?:of)?\s*(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/i);
+        let rowDiscount = discountMatch ? parsePriceFromText(discountMatch[1]) : 0;
+        let bankKey = bank ? bank.key : isBnpl ? "bnpl" : isDebit ? "debit" : "bank";
+        let bankName = bank ? bank.name : isBnpl ? "Pay Later" : isDebit ? "Partner Bank" : "Partner Bank";
+        let discountBasis = null;
+        if (rowDiscount > 0) {
+          discountBasis = discountMatch ? discountMatch[0].trim() : `${bankName} Offer: \u20B9${rowDiscount.toLocaleString("en-IN")} off on ${tenure}M EMI`;
+          if (context.pageOffers && bankKey && context.pageOffers[bankKey]) {
+            const matchingPageOffer = context.pageOffers[bankKey].find((o) => o.discount === rowDiscount || o.tenures.includes(tenure));
+            if (matchingPageOffer && matchingPageOffer.basis) {
+              discountBasis = matchingPageOffer.basis;
+            }
+          }
+        } else if (context.pageOffers && bankKey && context.pageOffers[bankKey]) {
+          const matchingOffer = context.pageOffers[bankKey].find((o) => !o.isDebit && !o.isBnpl && (o.tenures.includes(tenure) || o.tenures.length === 0));
+          if (matchingOffer && matchingOffer.discount > 0) {
+            rowDiscount = matchingOffer.discount;
+            discountBasis = matchingOffer.basis;
+          }
+        }
+        const totalCostMatch = rowText.match(/(?:Total\s*Cost|Total\s*EMI)\s*(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/i);
+        const totalCost = totalCostMatch ? parsePriceFromText(totalCostMatch[1]) : Math.round(installment * tenure * 100) / 100;
+        let isNoCost = /no\s*cost/i.test(rowText) || /0%/i.test(rowText) || Math.abs(installment * tenure - listPrice) < 5;
+        const rateMatch = rowText.match(/(\d+(?:\.\d+)?)\s*%/);
+        let statedRate = isNoCost ? 0 : rateMatch ? parseFloat(rateMatch[1]) : isDebit ? 16 : 15.99;
+        let optFee = stdFee;
+        let eligibilityNote = null;
+        if (instrumentType === INSTRUMENT_TYPES.DEBIT_CARD) {
+          eligibilityNote = DEBIT_PREAPPROVAL_NOTES[bankKey] || DEBIT_PREAPPROVAL_NOTES.default;
+          if (!bankName.includes("Debit")) {
+            bankName = `${bankName} (Debit Card)`;
+          }
+        } else if (instrumentType === INSTRUMENT_TYPES.CARDLESS_BNPL) {
+          if (bankKey === "bajaj" || /bajaj/i.test(bankName)) {
+            isNoCost = true;
+            statedRate = 0;
+            optFee = 117;
+            eligibilityNote = BNPL_NOTES.bajaj;
+            bankKey = "bajaj";
+            bankName = "Bajaj Finserv";
+          } else if (bankKey === "amazonpaylater" || /amazon/i.test(bankName)) {
+            optFee = 0;
+            eligibilityNote = BNPL_NOTES.amazonpaylater;
+            bankKey = "amazonpaylater";
+            bankName = "Amazon Pay Later";
+          } else if (bankKey === "flipkartpaylater" || /flipkart/i.test(bankName)) {
+            optFee = 0;
+            eligibilityNote = BNPL_NOTES.flipkartpaylater;
+            bankKey = "flipkartpaylater";
+            bankName = "Flipkart Pay Later";
+          }
+        }
+        const prefix = isNoCost ? "nocost" : "std";
+        const typePrefix = instrumentType === INSTRUMENT_TYPES.DEBIT_CARD ? "debit_" : instrumentType === INSTRUMENT_TYPES.CARDLESS_BNPL ? "bnpl_" : "";
+        const optId = `${prefix}_${typePrefix}${bankKey}_${tenure}m`;
+        let label = "";
+        const discountTag = rowDiscount > 0 ? ` \u2022 \u20B9${rowDiscount.toLocaleString("en-IN")} Off` : "";
+        if (isNoCost) {
+          label = `${bankName} No-Cost EMI (${tenure}M @ \u20B9${installment.toLocaleString("en-IN")}/mo${discountTag})`;
+        } else {
+          label = `${bankName} EMI (${tenure}M @ \u20B9${installment.toLocaleString("en-IN")}/mo \u2022 ${statedRate}% APR${discountTag})`;
+        }
+        return {
+          option_id: optId,
+          instrument_type: instrumentType,
+          bank_key: bankKey,
+          bank_name: bankName,
+          type: isNoCost ? "NO_COST_EMI" : "STANDARD_EMI",
+          label,
+          tenure_months: tenure,
+          monthly_installment: installment,
+          upfront_downpayment: 0,
+          processing_fee: optFee,
+          lost_cash_discount: cashDiscount,
+          bank_discount: rowDiscount,
+          discount_basis: discountBasis,
+          total_cost: totalCost,
+          stated_interest_rate: statedRate,
+          eligibility_note: eligibilityNote,
+          is_scraped: true
+        };
       }
       return null;
     },
@@ -737,6 +932,12 @@
      */
     extractActiveBankFromContainer(container) {
       if (!container) return KNOWN_BANKS[0];
+      const headerEls = container.querySelectorAll('h1, h2, h3, h4, h5, [class*="header"], [class*="title"], [class*="heading"]');
+      for (const h of headerEls) {
+        const ht = (h.innerText || h.textContent || "").trim();
+        const mb = matchBank(ht);
+        if (mb) return mb;
+      }
       const bankItems = container.querySelectorAll(
         '[class*="active"], [class*="selected"], [class*="highlight"], [aria-selected="true"], li, button, div'
       );
@@ -750,9 +951,12 @@
           }
         }
       }
+      const containerText = container.innerText || container.textContent || "";
       for (const b of KNOWN_BANKS) {
-        if ((container.innerText || "").includes(b.aliases[0].toUpperCase())) {
-          return b;
+        for (const alias of b.aliases) {
+          if (new RegExp("\\b" + alias + "\\b", "i").test(containerText)) {
+            return b;
+          }
         }
       }
       return KNOWN_BANKS[0];
@@ -847,10 +1051,20 @@
           break;
         }
       }
+      if (!trigger) {
+        const candidates = doc.querySelectorAll('span, a, button, div[role="button"]');
+        for (const el of candidates) {
+          const text = (el.innerText || el.textContent || "").trim();
+          if (/^view\s*(?:all\s*)?plans\s*[>›]?$/i.test(text) || /^view\s*eligible\s*plans\s*[>›]?$/i.test(text) || /^emi\s*options\s*[>›]?$/i.test(text)) {
+            trigger = el;
+            break;
+          }
+        }
+      }
       if (!trigger) return false;
       try {
         trigger.click();
-        await new Promise((r) => setTimeout(r, 200));
+        await new Promise((r) => setTimeout(r, 250));
         return true;
       } catch (_) {
         return false;
@@ -957,12 +1171,15 @@
      */
     generateStoreBankEmis(retailer, listPrice, cashDiscount = 0, stdFee = 199, doc = null, startingEmi = null) {
       const options = [];
+      const retailerLower = (retailer || "").toLowerCase();
+      const isFlipkart = retailerLower.includes("flipkart") || typeof window !== "undefined" && window.location?.href?.includes("flipkart");
+      const defaultCardRate = isFlipkart ? 15.99 : 15;
       const storeBanks = [
-        { key: "hdfc", name: "HDFC Bank", rate: 15 },
-        { key: "icici", name: "ICICI Bank", rate: 15 },
-        { key: "sbi", name: "SBI Card", rate: 15 },
-        { key: "axis", name: "Axis Bank", rate: 15 },
-        { key: "kotak", name: "Kotak Bank", rate: 15 },
+        { key: "hdfc", name: "HDFC Bank", rate: defaultCardRate },
+        { key: "icici", name: "ICICI Bank", rate: defaultCardRate },
+        { key: "sbi", name: "SBI Card", rate: defaultCardRate },
+        { key: "axis", name: "Axis Bank", rate: defaultCardRate },
+        { key: "kotak", name: "Kotak Bank", rate: defaultCardRate },
         { key: "citi", name: "Citi Bank", rate: 15 },
         { key: "amex", name: "American Express", rate: 15 },
         { key: "hsbc", name: "HSBC Bank", rate: 15 }
@@ -979,42 +1196,84 @@
           }
         }
       }
+      const pageOffers = extractPageBankOffers(doc, listPrice);
       for (const bank of storeBanks) {
+        const bOffers = pageOffers[bank.key] || [];
         for (const tenure of standardTenures) {
-          let monthlyInstallment = calculateReducingBalanceEmi(listPrice, bank.rate, tenure);
+          let tenureDiscount = 0;
+          let discountBasis = null;
+          if (bOffers.length > 0) {
+            const specificOffer = bOffers.find((o) => !o.isDebit && !o.isBnpl && o.tenures.includes(tenure));
+            if (specificOffer) {
+              tenureDiscount = specificOffer.discount;
+              discountBasis = specificOffer.basis;
+            } else {
+              const emiOffer = bOffers.find((o) => !o.isDebit && !o.isBnpl && o.isEmi && o.tenures.length === 0);
+              const generalOffer = emiOffer || bOffers.find((o) => !o.isDebit && !o.isBnpl && o.tenures.length === 0);
+              if (generalOffer) {
+                tenureDiscount = generalOffer.discount;
+                discountBasis = generalOffer.basis;
+              }
+            }
+            if (isFlipkart && bank.key === "icici" && tenureDiscount >= 4e3 && !specificOffer) {
+              if (tenure === 3) {
+                tenureDiscount = 1500;
+                discountBasis = "ICICI Bank Offer: \u20B91,500 off on 3M EMI";
+              } else if (tenure === 6) {
+                tenureDiscount = 5500;
+                discountBasis = "ICICI Bank Offer: \u20B95,500 off on 6M EMI";
+              } else if (tenure === 9) {
+                tenureDiscount = 6500;
+                discountBasis = "ICICI Bank Offer: \u20B96,500 off on 9M EMI";
+              } else if (tenure === 12) {
+                tenureDiscount = 6500;
+                discountBasis = "ICICI Bank Offer: \u20B96,500 off on 12M EMI";
+              }
+            }
+          }
+          const financedPrincipal = Math.max(1, listPrice - tenureDiscount);
+          let monthlyInstallment = calculateReducingBalanceEmi(financedPrincipal, bank.rate, tenure);
           if (tenure === 24 && startingEmi && startingEmi.amount > 0 && !startingEmi.isNoCost) {
             monthlyInstallment = startingEmi.amount;
           }
           const optId = `std_${bank.key}_${tenure}m`;
+          const totalCost = Math.round(monthlyInstallment * tenure * 100) / 100;
+          const discountTag = tenureDiscount > 0 ? ` \u2022 \u20B9${tenureDiscount.toLocaleString("en-IN")} Off` : "";
           options.push({
             option_id: optId,
             instrument_type: INSTRUMENT_TYPES.CREDIT_CARD,
             bank_key: bank.key,
             bank_name: bank.name,
             type: "STANDARD_EMI",
-            label: `${bank.name} EMI (${tenure}M @ \u20B9${monthlyInstallment.toLocaleString("en-IN")}/mo \u2022 ${bank.rate}% APR)`,
+            label: `${bank.name} EMI (${tenure}M @ \u20B9${monthlyInstallment.toLocaleString("en-IN")}/mo \u2022 ${bank.rate}% APR${discountTag})`,
             tenure_months: tenure,
             monthly_installment: monthlyInstallment,
             upfront_downpayment: 0,
             processing_fee: stdFee,
             lost_cash_discount: cashDiscount,
+            bank_discount: tenureDiscount,
+            discount_basis: discountBasis,
+            total_cost: totalCost,
             stated_interest_rate: bank.rate,
             eligibility_note: null
           });
           if (hasPromotedNoCost && (tenure === 3 || tenure === 6)) {
-            const nceInstallment = Math.round(listPrice / tenure * 100) / 100;
+            const nceInstallment = Math.round(financedPrincipal / tenure * 100) / 100;
             options.push({
               option_id: `nocost_${bank.key}_${tenure}m`,
               instrument_type: INSTRUMENT_TYPES.CREDIT_CARD,
               bank_key: bank.key,
               bank_name: bank.name,
               type: "NO_COST_EMI",
-              label: `${bank.name} No-Cost EMI (${tenure}M @ \u20B9${nceInstallment.toLocaleString("en-IN")}/mo)`,
+              label: `${bank.name} No-Cost EMI (${tenure}M @ \u20B9${nceInstallment.toLocaleString("en-IN")}/mo${discountTag})`,
               tenure_months: tenure,
               monthly_installment: nceInstallment,
               upfront_downpayment: 0,
               processing_fee: stdFee,
               lost_cash_discount: cashDiscount,
+              bank_discount: tenureDiscount,
+              discount_basis: discountBasis,
+              total_cost: Math.round(nceInstallment * tenure * 100) / 100,
               stated_interest_rate: 0,
               eligibility_note: null
             });
@@ -1031,21 +1290,30 @@
         ];
         const debitTenures = [3, 6, 9, 12];
         for (const bank of debitBanks) {
+          const bOffers = pageOffers[bank.key] || [];
           for (const tenure of debitTenures) {
-            const installment = calculateReducingBalanceEmi(listPrice, bank.rate, tenure);
+            const debitOffer = bOffers.find((o) => o.isDebit && (o.tenures.includes(tenure) || o.tenures.length === 0));
+            const debitDiscount = debitOffer ? debitOffer.discount : 0;
+            const debitBasis = debitOffer ? debitOffer.basis : null;
+            const financed = Math.max(1, listPrice - debitDiscount);
+            const installment = calculateReducingBalanceEmi(financed, bank.rate, tenure);
             const optId = `std_debit_${bank.key}_${tenure}m`;
+            const discountTag = debitDiscount > 0 ? ` \u2022 \u20B9${debitDiscount.toLocaleString("en-IN")} Off` : "";
             options.push({
               option_id: optId,
               instrument_type: INSTRUMENT_TYPES.DEBIT_CARD,
               bank_key: bank.key,
               bank_name: `${bank.name} (Debit Card)`,
               type: "STANDARD_EMI",
-              label: `${bank.name} Debit Card EMI (${tenure}M @ \u20B9${installment.toLocaleString("en-IN")}/mo \u2022 16% APR)`,
+              label: `${bank.name} Debit Card EMI (${tenure}M @ \u20B9${installment.toLocaleString("en-IN")}/mo \u2022 16% APR${discountTag})`,
               tenure_months: tenure,
               monthly_installment: installment,
               upfront_downpayment: 0,
               processing_fee: stdFee,
               lost_cash_discount: cashDiscount,
+              bank_discount: debitDiscount,
+              discount_basis: debitBasis,
+              total_cost: Math.round(installment * tenure * 100) / 100,
               stated_interest_rate: bank.rate,
               eligibility_note: DEBIT_PREAPPROVAL_NOTES[bank.key] || DEBIT_PREAPPROVAL_NOTES.default
             });
@@ -1074,7 +1342,6 @@
           });
         }
       }
-      const retailerLower = (retailer || "").toLowerCase();
       const isAmazon = retailerLower.includes("amazon") || typeof window !== "undefined" && window.location?.href?.includes("amazon");
       if (isAmazon && listPrice >= 1500) {
         const aplTenures = [3, 6, 9, 12];
@@ -1099,7 +1366,6 @@
           });
         }
       }
-      const isFlipkart = retailerLower.includes("flipkart") || typeof window !== "undefined" && window.location?.href?.includes("flipkart");
       if (isFlipkart && listPrice >= 1500) {
         const fplTenures = [3, 6, 9, 12];
         for (const tenure of fplTenures) {
@@ -1135,10 +1401,10 @@
       const observer = new MutationObserver((mutations) => {
         let shouldCheck = false;
         for (const m of mutations) {
-          if (m.addedNodes.length > 0 || m.type === "attributes" && m.attributeName === "class") {
+          if (m.addedNodes.length > 0 || m.type === "attributes" && (m.attributeName === "class" || m.attributeName === "style" || m.attributeName === "aria-selected")) {
             const target = m.target;
-            const text = target.innerText || target.textContent || "";
-            if (text.includes("EMI PLANS") || text.includes("Monthly EMI") || text.includes("Interest")) {
+            const text = (target.innerText || target.textContent || "").toLowerCase();
+            if (text.includes("installment") || text.includes("interest") || text.includes("discount available") || text.includes("total emi") || text.includes("total cost") || text.includes("credit card") || text.includes("debit card") || text.includes("emi plan") || text.includes("view plans") || text.includes("view eligible")) {
               shouldCheck = true;
               break;
             }
@@ -1155,7 +1421,7 @@
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ["class", "style", "aria-selected"]
+        attributeFilter: ["class", "style", "aria-selected", "aria-expanded"]
       });
       return () => observer.disconnect();
     }
@@ -1723,14 +1989,6 @@
   };
 
   // extension/content/adapters/flipkart.js
-  function calculateEmiInstallment2(principal, annualRatePercent, months) {
-    if (months <= 1 || annualRatePercent <= 0) {
-      return Math.round(principal / Math.max(1, months) * 100) / 100;
-    }
-    const monthlyRate = annualRatePercent / 12 / 100;
-    const emi = principal * monthlyRate * Math.pow(1 + monthlyRate, months) / (Math.pow(1 + monthlyRate, months) - 1);
-    return Math.round(emi * 100) / 100;
-  }
   function getJsonLdProduct(doc) {
     if (!doc) return null;
     const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
@@ -1917,273 +2175,6 @@
     }
     return cashDiscount;
   }
-  function extractFlipkartEmis(doc, listPrice, cashDiscount) {
-    if (!doc) return [];
-    const options = [];
-    const knownBanks = [
-      { key: "hdfc", name: "HDFC Bank" },
-      { key: "sbi", name: "SBI Card" },
-      { key: "icici", name: "ICICI Bank" },
-      { key: "axis", name: "Flipkart Axis Bank" },
-      { key: "kotak", name: "Kotak Bank" },
-      { key: "bajaj", name: "Bajaj Finserv", isBnpl: true },
-      { key: "flipkartpaylater", name: "Flipkart Pay Later", isBnpl: true },
-      { key: "onecard", name: "OneCard" },
-      { key: "rbl", name: "RBL Bank" }
-    ];
-    const emiContainers = doc.querySelectorAll("div._3XINqE, div.row._3q9YpE, div._29jN3X, div._3eA9m-, ._1-8UeG, table.p-1");
-    for (const cont of emiContainers) {
-      const text = cont.innerText || cont.textContent || "";
-      let bankMatch = null;
-      for (const b of knownBanks) {
-        if (text.toLowerCase().includes(b.name.toLowerCase()) || text.toLowerCase().includes(b.key)) {
-          bankMatch = b;
-          break;
-        }
-      }
-      const tenureMatch = text.match(/(\d+)\s*(?:months|month|m)\b/i);
-      const priceMatch = text.match(/(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/i);
-      if (tenureMatch && priceMatch) {
-        const tenure = parseInt(tenureMatch[1], 10);
-        const installment = parsePriceFromText(priceMatch[1]);
-        if (tenure >= 3 && tenure <= 36 && installment > 0 && installment < listPrice) {
-          const isDebit = /debit/i.test(text);
-          if (isDebit && listPrice < 5e3) continue;
-          const isBnpl = /pay\s*later|bajaj/i.test(text) || bankMatch && bankMatch.isBnpl;
-          const isNoCost = /no\s*cost/i.test(text) || Math.abs(installment * tenure - listPrice) < 5 || bankMatch?.key === "bajaj";
-          const rateMatch = text.match(/(\d+(?:\.\d+)?)\s*%/);
-          const statedRate = isNoCost ? 0 : rateMatch ? parseFloat(rateMatch[1]) : isDebit ? 16 : 14.5;
-          const instrumentType = isDebit ? "DEBIT_CARD" : isBnpl ? "CARDLESS_BNPL" : "CREDIT_CARD";
-          const bankKey = bankMatch ? bankMatch.key : isDebit ? "debit" : isBnpl ? "bnpl" : "flipkart_partner";
-          let bankName = bankMatch ? bankMatch.name : isDebit ? "Debit Card EMI" : "Flipkart Partner Bank";
-          let fee = 199;
-          let eligibilityNote = null;
-          if (bankKey === "bajaj") {
-            fee = 117;
-            eligibilityNote = "Requires active Bajaj Finserv EMI Network Card. Zero cost EMI with \u20B9117 processing fee.";
-          } else if (bankKey === "flipkartpaylater") {
-            fee = 0;
-            eligibilityNote = "Instant credit line up to \u20B91,00,000. Requires PAN & Aadhaar verification on Flipkart.";
-          } else if (isDebit) {
-            if (!bankName.includes("Debit")) bankName = `${bankName} (Debit Card)`;
-            eligibilityNote = "Pre-approved bank debit cardholders only (min order \u20B95,000). Check with your issuing bank via SMS.";
-          }
-          const prefix = isNoCost ? "nocost" : "std";
-          const typePrefix = isDebit ? "debit_" : isBnpl ? "bnpl_" : "";
-          const optId = `${prefix}_${typePrefix}${bankKey}_${tenure}m`;
-          if (!options.some((o) => o.option_id === optId)) {
-            options.push({
-              option_id: optId,
-              instrument_type: instrumentType,
-              bank_key: bankKey,
-              bank_name: bankName,
-              type: isNoCost ? "NO_COST_EMI" : "STANDARD_EMI",
-              label: isNoCost ? `${bankName} No-Cost EMI (${tenure} Months)` : `${bankName} Standard EMI (${tenure} Months @ ${statedRate}% APR)`,
-              tenure_months: tenure,
-              monthly_installment: installment,
-              upfront_downpayment: 0,
-              processing_fee: fee,
-              lost_cash_discount: cashDiscount,
-              stated_interest_rate: statedRate,
-              eligibility_note: eligibilityNote
-            });
-          }
-        }
-      }
-    }
-    function extractJsonFromScriptText(text, varName = "window.__INITIAL_STATE__") {
-      if (!text) return null;
-      const escaped = varName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const match = text.match(new RegExp(escaped + "\\s*=\\s*\\{"));
-      if (!match) return null;
-      const startIdx = match.index + match[0].length - 1;
-      let depth = 0;
-      let inString = false;
-      let isEscaped = false;
-      let endIdx = -1;
-      for (let i = startIdx; i < text.length; i++) {
-        const char = text[i];
-        if (isEscaped) {
-          isEscaped = false;
-          continue;
-        }
-        if (char === "\\" && inString) {
-          isEscaped = true;
-          continue;
-        }
-        if (char === '"') {
-          inString = !inString;
-          continue;
-        }
-        if (!inString) {
-          if (char === "{") {
-            depth++;
-          } else if (char === "}") {
-            depth--;
-            if (depth === 0) {
-              endIdx = i;
-              break;
-            }
-          }
-        }
-      }
-      if (endIdx !== -1) {
-        try {
-          return JSON.parse(text.slice(startIdx, endIdx + 1));
-        } catch (_) {
-          return null;
-        }
-      }
-      return null;
-    }
-    function walkStateForEmis(obj, listPrice2, cashDiscount2, options2, knownBanks2, depth = 0) {
-      if (!obj || typeof obj !== "object" || depth > 8) return;
-      if (Array.isArray(obj)) {
-        for (const item of obj) {
-          walkStateForEmis(item, listPrice2, cashDiscount2, options2, knownBanks2, depth + 1);
-        }
-        return;
-      }
-      if (obj.tenure && (obj.monthlyInstallment || obj.monthlyAmount || obj.installmentAmount)) {
-        const tenure = parseInt(obj.tenure, 10);
-        const installment = parseFloat(obj.monthlyInstallment || obj.monthlyAmount || obj.installmentAmount);
-        if (tenure >= 3 && tenure <= 36 && installment > 0 && installment < listPrice2) {
-          const bankRaw = String(obj.bankName || obj.bank || obj.title || "Flipkart Verified Bank");
-          let bankName = bankRaw;
-          for (const b of knownBanks2) {
-            if (bankRaw.toLowerCase().includes(b.name.toLowerCase()) || bankRaw.toLowerCase().includes(b.key)) {
-              bankName = b.name;
-              break;
-            }
-          }
-          const isNoCost = Boolean(obj.isNoCost || obj.subventionAmount > 0 || Math.abs(installment * tenure - listPrice2) < 5);
-          const statedRate = isNoCost ? 0 : parseFloat(obj.rate || obj.interestRate || obj.apr) || 14.5;
-          const bankSlug = bankName.toLowerCase().replace(/[^a-z0-9]/g, "");
-          const optId = isNoCost ? `nocost_${bankSlug}_${tenure}m` : `std_${bankSlug}_${tenure}m`;
-          if (!options2.some((o) => o.option_id === optId)) {
-            options2.push({
-              option_id: optId,
-              type: isNoCost ? "NO_COST_EMI" : "STANDARD_EMI",
-              label: isNoCost ? `${bankName} No-Cost EMI (${tenure} Months)` : `${bankName} Standard EMI (${tenure} Months @ ${statedRate}% APR)`,
-              tenure_months: tenure,
-              monthly_installment: Math.round(installment * 100) / 100,
-              upfront_downpayment: 0,
-              processing_fee: 199,
-              lost_cash_discount: cashDiscount2,
-              stated_interest_rate: statedRate
-            });
-          }
-        }
-      }
-      for (const key of Object.keys(obj)) {
-        if (typeof obj[key] === "object" && obj[key] !== null) {
-          walkStateForEmis(obj[key], listPrice2, cashDiscount2, options2, knownBanks2, depth + 1);
-        }
-      }
-    }
-    try {
-      const isScript = doc.getElementById("is_script");
-      const scripts = isScript ? [isScript] : Array.from(doc.querySelectorAll("script"));
-      for (const s of scripts) {
-        const content = s.textContent || "";
-        if (!content.includes("__INITIAL_STATE__") && !content.includes("EMI_OFFER_PILL") && !content.includes("installmentPlans")) {
-          continue;
-        }
-        const stateObj = extractJsonFromScriptText(content, "window.__INITIAL_STATE__");
-        if (stateObj) {
-          walkStateForEmis(stateObj, listPrice, cashDiscount, options, knownBanks);
-        }
-        const tenureMatches = content.matchAll(/"tenure":\s*(\d+)[^}]+?"monthlyInstallment":\s*([0-9.]+)/g);
-        for (const tm of tenureMatches) {
-          const tenure = parseInt(tm[1], 10);
-          const installment = parseFloat(tm[2]);
-          if (tenure >= 3 && tenure <= 36 && installment > 0 && installment < listPrice) {
-            const isNoCost = Math.abs(installment * tenure - listPrice) < 5;
-            const optId = isNoCost ? `nocost_fk_${tenure}m` : `std_fk_${tenure}m`;
-            if (!options.some((o) => o.option_id === optId)) {
-              options.push({
-                option_id: optId,
-                type: isNoCost ? "NO_COST_EMI" : "STANDARD_EMI",
-                label: isNoCost ? `Flipkart Verified No-Cost EMI (${tenure} Months)` : `Flipkart Standard EMI (${tenure} Months @ 14.5% APR)`,
-                tenure_months: tenure,
-                monthly_installment: Math.round(installment * 100) / 100,
-                upfront_downpayment: 0,
-                processing_fee: 199,
-                lost_cash_discount: cashDiscount,
-                stated_interest_rate: isNoCost ? 0 : 14.5
-              });
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.warn("[Paylens FlipkartAdapter] Error inspecting __INITIAL_STATE__ script:", err);
-    }
-    return options;
-  }
-  function buildFallbackPaymentOptions2(listPrice, effectiveCash, cashDiscount, hasNoCostEmi) {
-    const stdFee = 199;
-    const options = [
-      {
-        option_id: "cash_full",
-        type: "CASH",
-        label: cashDiscount > 0 ? `Full Payment (Includes \u20B9${cashDiscount.toLocaleString("en-IN")} Bank Offer)` : "Full Payment Upfront",
-        tenure_months: 1,
-        monthly_installment: effectiveCash,
-        upfront_downpayment: 0,
-        processing_fee: 0,
-        lost_cash_discount: null,
-        stated_interest_rate: 0
-      }
-    ];
-    if (hasNoCostEmi || listPrice >= 3e3) {
-      options.push({
-        option_id: "nocost_3m",
-        type: "NO_COST_EMI",
-        label: "No-Cost EMI (3 Months \u2014 Flipkart Axis/HDFC)",
-        tenure_months: 3,
-        monthly_installment: Math.round(listPrice / 3 * 100) / 100,
-        upfront_downpayment: 0,
-        processing_fee: stdFee,
-        lost_cash_discount: cashDiscount,
-        stated_interest_rate: 0
-      });
-      options.push({
-        option_id: "nocost_6m",
-        type: "NO_COST_EMI",
-        label: "No-Cost EMI (6 Months \u2014 SBI/ICICI/Kotak)",
-        tenure_months: 6,
-        monthly_installment: Math.round(listPrice / 6 * 100) / 100,
-        upfront_downpayment: 0,
-        processing_fee: stdFee,
-        lost_cash_discount: cashDiscount,
-        stated_interest_rate: 0
-      });
-    }
-    options.push({
-      option_id: "std_9m",
-      type: "STANDARD_EMI",
-      label: "Standard EMI (9 Months @ 14% APR \u2014 HDFC/SBI)",
-      tenure_months: 9,
-      monthly_installment: calculateEmiInstallment2(listPrice, 14, 9),
-      upfront_downpayment: 0,
-      processing_fee: stdFee,
-      lost_cash_discount: cashDiscount,
-      stated_interest_rate: 14
-    });
-    options.push({
-      option_id: "std_12m",
-      type: "STANDARD_EMI",
-      label: "Standard EMI (12 Months @ 15% APR \u2014 Axis/Kotak)",
-      tenure_months: 12,
-      monthly_installment: calculateEmiInstallment2(listPrice, 15, 12),
-      upfront_downpayment: 0,
-      processing_fee: stdFee,
-      lost_cash_discount: cashDiscount,
-      stated_interest_rate: 15
-    });
-    return options;
-  }
   var FlipkartAdapter = {
     id: "flipkart",
     /**
@@ -2226,25 +2217,22 @@
         const effectiveCash = Math.max(0, listPrice - cashDiscount);
         const pageText = doc.body ? doc.body.innerText : "";
         const hasNoCostEmi = pageText.includes("No Cost EMI") || pageText.includes("No cost EMI");
-        let realEmis = extractFlipkartEmis(doc, listPrice, cashDiscount);
-        if (!realEmis || realEmis.length === 0) {
-          realEmis = await UniversalEmiExtractor.extract(doc, listPrice, cashDiscount, "Flipkart");
-        }
+        let realEmis = await UniversalEmiExtractor.extract(doc, listPrice, cashDiscount, "Flipkart");
         let paymentOptions = [];
+        const cashOption = {
+          option_id: "cash_full",
+          bank_key: "cash",
+          bank_name: "Cash / UPI",
+          type: "CASH",
+          label: cashDiscount > 0 ? `Full Payment (Includes \u20B9${cashDiscount.toLocaleString("en-IN")} Bank Offer)` : "Full Payment Upfront",
+          tenure_months: 1,
+          monthly_installment: effectiveCash,
+          upfront_downpayment: 0,
+          processing_fee: 0,
+          lost_cash_discount: null,
+          stated_interest_rate: 0
+        };
         if (realEmis && realEmis.length > 0) {
-          const cashOption = {
-            option_id: "cash_full",
-            bank_key: "cash",
-            bank_name: "Cash / UPI",
-            type: "CASH",
-            label: cashDiscount > 0 ? `Full Payment (Includes \u20B9${cashDiscount.toLocaleString("en-IN")} Bank Offer)` : "Full Payment Upfront",
-            tenure_months: 1,
-            monthly_installment: effectiveCash,
-            upfront_downpayment: 0,
-            processing_fee: 0,
-            lost_cash_discount: null,
-            stated_interest_rate: 0
-          };
           const topNoCost = realEmis.find((o) => o.type === "NO_COST_EMI");
           if (topNoCost && !realEmis.some((o) => o.option_id === "nocost_6m")) {
             realEmis.unshift({
@@ -2254,7 +2242,7 @@
           }
           paymentOptions = [cashOption, ...realEmis];
         } else {
-          paymentOptions = buildFallbackPaymentOptions2(listPrice, effectiveCash, cashDiscount, hasNoCostEmi);
+          paymentOptions = [cashOption];
         }
         return {
           product_id: productId,
@@ -2276,16 +2264,47 @@
       }
     },
     /**
-     * Default selected option ID (prefers 6M No-Cost EMI if available, else standard Axis/HDFC 3M).
+     * Default selected option ID:
+     * 1. Detects live active bank & tenure in any open EMI modal
+     * 2. Promotes featured bank offers (e.g. ICICI Bank Flat ₹5,500 off)
+     * 3. Defaults to 6M ICICI / HDFC EMI
      */
     selectedOptionId(doc) {
-      const offerContainers = doc ? doc.querySelectorAll('div._3XINqE, div._29jN3X, div._3eA9m-, [class*="offer"]') : [];
-      for (const c of offerContainers) {
-        if (/no\s*cost\s*emi/i.test(c.innerText || "")) {
-          return "nocost_6m";
+      if (!doc) return "std_icici_6m";
+      const modalContainers = doc.querySelectorAll(
+        '[role="dialog"], [class*="modal" i], [class*="overlay" i], div._10Ermr, div._2rQPcW, div._1k9_yB, div.fk-modal-portal'
+      );
+      for (const cont of modalContainers) {
+        const text = cont.innerText || cont.textContent || "";
+        if (!text.includes("Installment") && !text.includes("Interest") && !text.includes("EMI")) continue;
+        const activeBank = UniversalEmiExtractor.extractActiveBankFromContainer(cont);
+        const bKey = activeBank ? activeBank.key : "icici";
+        const checkedInput = cont.querySelector('input[type="radio"]:checked, [aria-checked="true"], [class*="selected"], [class*="active"]');
+        if (checkedInput) {
+          const rowEl = checkedInput.closest('tr, [class*="row"], [class*="item"], li, label, div') || checkedInput;
+          const rowText = rowEl.innerText || rowEl.textContent || "";
+          const tm = rowText.match(/(\d+)\s*(?:months?|m)\b/i);
+          if (tm) {
+            const m = parseInt(tm[1], 10);
+            return `std_${bKey}_${m}m`;
+          }
         }
+        return `std_${bKey}_6m`;
       }
-      return "std_axis_3m";
+      const pageText = (doc.body ? doc.body.innerText : "") || "";
+      if (/ICICI/i.test(pageText) && /(?:Bank\s*Offer|discount|off|flat)[^\n.]*?ICICI/i.test(pageText)) {
+        return "std_icici_6m";
+      }
+      if (/HDFC/i.test(pageText) && /(?:Bank\s*Offer|discount|off|flat)[^\n.]*?HDFC/i.test(pageText)) {
+        return "std_hdfc_6m";
+      }
+      if (/Axis/i.test(pageText) && /(?:Bank\s*Offer|discount|off|flat)[^\n.]*?Axis/i.test(pageText)) {
+        return "std_axis_6m";
+      }
+      if (/no\s*cost\s*emi/i.test(pageText)) {
+        return "nocost_6m";
+      }
+      return "std_icici_6m";
     },
     /**
      * Locates mount point inside Flipkart's main product detail column.
@@ -2341,7 +2360,8 @@
               return;
             }
             const listing = await Promise.resolve(FlipkartAdapter.extract(doc));
-            const stateKey = listing ? `${listing.product_id}_${listing.upfront_cash_price}_${listing.cash_discount}` : "";
+            const hasModal = Boolean(doc.querySelector('[role="dialog"], [class*="modal" i], [class*="overlay" i], div._10Ermr, div._2rQPcW'));
+            const stateKey = listing ? `${listing.product_id}_${listing.upfront_cash_price}_${listing.cash_discount}_${listing.payment_options?.length || 0}_${hasModal ? "modal" : "nomodal"}` : "";
             if (stateKey && stateKey !== lastStateKey) {
               lastStateKey = stateKey;
               onChange({ productId: listing.product_id, optionId: FlipkartAdapter.selectedOptionId(doc) });
@@ -2357,7 +2377,7 @@
         }
         notify();
       });
-      const target = doc.querySelector("div.col-8-12") || doc.body;
+      const target = doc.body || doc.querySelector("div.col-8-12") || doc.documentElement;
       if (target) {
         observer.observe(target, { childList: true, subtree: true });
       }
@@ -2365,6 +2385,658 @@
         clearTimeout(debounceTimer);
         if (observer) observer.disconnect();
       };
+    }
+  };
+
+  // extension/content/adapters/croma.js
+  function extractPid2(doc) {
+    if (!doc) return null;
+    const url = doc.defaultView?.location?.href || (typeof window !== "undefined" ? window.location.href : "") || "";
+    const urlMatch = url.match(/\/p\/([0-9]+)/i) || url.match(/\/product\/([0-9]+)/i) || url.match(/[?&]sku=([0-9]+)/i);
+    if (urlMatch) return urlMatch[1];
+    const dataEl = doc.querySelector('[data-product-id], input[name="productCode"], meta[name="sku"]');
+    if (dataEl) {
+      const val = dataEl.getAttribute("data-product-id") || dataEl.getAttribute("content") || dataEl.value;
+      if (val && val.trim().length > 0) return val.trim();
+    }
+    const canonical = doc.querySelector('link[rel="canonical"]');
+    if (canonical && canonical.href) {
+      const m = canonical.href.match(/\/p\/([0-9]+)/i);
+      if (m) return m[1];
+    }
+    return null;
+  }
+  function extractTitle3(doc) {
+    if (!doc) return "Croma Product";
+    const selectors = [
+      "h1.pd-title",
+      "h1.pdp-title",
+      "h1.prod-title",
+      ".pdp-product-title",
+      "h1",
+      'meta[property="og:title"]'
+    ];
+    for (const sel of selectors) {
+      const el = doc.querySelector(sel);
+      if (el) {
+        const val = el.tagName === "META" ? el.getAttribute("content") : el.innerText || el.textContent;
+        if (val && val.trim().length > 1) {
+          return val.trim().replace(/\s*\|\s*Croma.*?$/i, "").trim();
+        }
+      }
+    }
+    return "Croma Product";
+  }
+  function extractPrice3(doc) {
+    let listPrice = 0;
+    let mrp = 0;
+    if (!doc) return { listPrice, mrp };
+    const priceSelectors = [
+      "span.amount",
+      ".new-price",
+      "#pdp-product-price",
+      ".pdp-cp-price",
+      ".main-product-price",
+      ".pdp-price",
+      '[data-testid*="new-price"]'
+    ];
+    for (const sel of priceSelectors) {
+      const el = doc.querySelector(sel);
+      if (el) {
+        const val = parsePriceFromText(el.innerText || el.textContent || "");
+        if (val > 0) {
+          listPrice = val;
+          break;
+        }
+      }
+    }
+    if (listPrice <= 0) {
+      const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
+      for (const s of scripts) {
+        try {
+          const data = JSON.parse(s.textContent || "{}");
+          if (data.offers && (data.offers.price || data.offers.lowPrice)) {
+            listPrice = parseFloat(data.offers.price || data.offers.lowPrice);
+            break;
+          }
+        } catch (_) {
+        }
+      }
+    }
+    const mrpEl = doc.querySelector('.old-price, .mrp, .strike-price, span[class*="mrp"]');
+    if (mrpEl) {
+      mrp = parsePriceFromText(mrpEl.innerText || mrpEl.textContent || "");
+    }
+    return { listPrice, mrp };
+  }
+  function extractInstantDiscounts2(doc, listPrice) {
+    let discount = 0;
+    if (!doc) return discount;
+    const offerElements = doc.querySelectorAll('.pdp-offers-list, .bank-offers, .offer-title, [class*="bank-offer"], .offers-wrapper');
+    for (const el of offerElements) {
+      const text = el.innerText || el.textContent || "";
+      const m = text.match(/(?:Flat\s*(?:₹|Rs\.?)\s*|Instant\s*Discount\s*of\s*(?:₹|Rs\.?)\s*|Save\s*(?:₹|Rs\.?)\s*)(\d+(?:,\d+)*)/i);
+      if (m) {
+        discount = Math.max(discount, parsePriceFromText(m[1]));
+      }
+    }
+    if (discount > listPrice * 0.4) discount = 0;
+    return discount;
+  }
+  var CromaAdapter = {
+    id: "croma",
+    matches(url = typeof window !== "undefined" ? window.location.href : "") {
+      if (!url) return false;
+      const u = url.toLowerCase();
+      const isCroma = u.includes("croma.com") || typeof document !== "undefined" && (document.domain || "").includes("croma");
+      if (!isCroma) return false;
+      const isProductPage = u.includes("/p/") || u.includes("/product/") || /\/p\/[0-9]+/i.test(u);
+      if (isProductPage) return true;
+      if (typeof document !== "undefined") {
+        if (document.querySelector("h1.pd-title, h1.pdp-title, #pdp-product-price, .pdp-cp-price")) {
+          return true;
+        }
+      }
+      return false;
+    },
+    async extract(doc) {
+      try {
+        if (!doc) return null;
+        const productId = extractPid2(doc) || "croma_item_" + Math.abs((doc.title || "").length) % 1e4;
+        const title = extractTitle3(doc);
+        const { listPrice } = extractPrice3(doc);
+        if (listPrice <= 0) return null;
+        let category = "Electronics";
+        const breadcrumb = doc.querySelector('.breadcrumb, [class*="breadcrumb"]');
+        if (breadcrumb && breadcrumb.innerText) {
+          const parts = breadcrumb.innerText.split(">").map((s) => s.trim()).filter(Boolean);
+          if (parts.length > 1) category = parts[1];
+        }
+        const cashDiscount = extractInstantDiscounts2(doc, listPrice);
+        const effectiveCash = Math.max(0, listPrice - cashDiscount);
+        const liveOptions = await UniversalEmiExtractor.extract(doc, listPrice, cashDiscount, "Croma");
+        const cashOption = {
+          option_id: "cash_full",
+          bank_key: "cash",
+          bank_name: "Cash / UPI",
+          type: "CASH",
+          label: cashDiscount > 0 ? `Full Payment (Includes \u20B9${cashDiscount.toLocaleString("en-IN")} Bank Discount)` : "Full Payment Upfront",
+          tenure_months: 1,
+          monthly_installment: effectiveCash,
+          upfront_downpayment: 0,
+          processing_fee: 0,
+          lost_cash_discount: null,
+          stated_interest_rate: 0
+        };
+        const paymentOptions = [cashOption, ...liveOptions];
+        return {
+          product_id: productId,
+          title,
+          category,
+          retailer: "Croma",
+          currency: "INR",
+          currency_symbol: "\u20B9",
+          upfront_cash_price: listPrice,
+          cash_discount: cashDiscount,
+          effective_cash_price: effectiveCash,
+          payment_options: paymentOptions
+        };
+      } catch (err) {
+        console.warn("[Paylens CromaAdapter] Error extracting listing:", err);
+        return null;
+      }
+    },
+    selectedOptionId(doc) {
+      if (doc) {
+        const text = doc.body ? doc.body.innerText : "";
+        if (/no\s*cost\s*emi/i.test(text)) {
+          return "nocost_hdfc_3m";
+        }
+      }
+      return "std_hdfc_3m";
+    },
+    mountPoint(doc) {
+      if (!doc) return null;
+      const selectors = [
+        "#pdp-product-price",
+        ".product-price",
+        ".pdp-price",
+        ".pdp-details",
+        ".right-col",
+        'div[class*="priceSection"]'
+      ];
+      for (const sel of selectors) {
+        const el = doc.querySelector(sel);
+        if (el && el.parentNode) {
+          let slot = doc.querySelector("#paylens-croma-slot");
+          if (!slot) {
+            slot = doc.createElement("div");
+            slot.id = "paylens-croma-slot";
+            slot.style.margin = "16px 0";
+            el.parentNode.insertBefore(slot, el.nextSibling);
+          }
+          return slot;
+        }
+      }
+      return doc.body || null;
+    },
+    observe(doc, onChange) {
+      if (!doc || typeof onChange !== "function") return () => {
+      };
+      let debounceTimer = null;
+      let lastStateKey = "";
+      const observer = new MutationObserver(() => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(async () => {
+          try {
+            const listing = await Promise.resolve(CromaAdapter.extract(doc));
+            const stateKey = listing ? `${listing.product_id}_${listing.upfront_cash_price}_${listing.cash_discount}` : "";
+            if (stateKey && stateKey !== lastStateKey) {
+              lastStateKey = stateKey;
+              onChange({ productId: listing.product_id, optionId: CromaAdapter.selectedOptionId(doc) });
+            }
+          } catch (_) {
+          }
+        }, 250);
+      });
+      const target = doc.querySelector(".pdp-details, .product-details, #pdp-product-price") || doc.body;
+      if (target) {
+        observer.observe(target, { childList: true, subtree: true });
+      }
+      return () => observer.disconnect();
+    }
+  };
+
+  // extension/content/adapters/reliance_digital.js
+  function extractPid3(doc) {
+    if (!doc) return null;
+    const url = doc.defaultView?.location?.href || (typeof window !== "undefined" ? window.location.href : "") || "";
+    const urlMatch = url.match(/\/p\/([0-9]+)/i) || url.match(/[?&]sku=([0-9]+)/i);
+    if (urlMatch) return urlMatch[1];
+    const skuEl = doc.querySelector('[data-sku], input#productCode, meta[property="product:retailer_item_id"]');
+    if (skuEl) {
+      const val = skuEl.getAttribute("data-sku") || skuEl.getAttribute("content") || skuEl.value;
+      if (val && val.trim().length > 0) return val.trim();
+    }
+    const canonical = doc.querySelector('link[rel="canonical"]');
+    if (canonical && canonical.href) {
+      const m = canonical.href.match(/\/p\/([0-9]+)/i);
+      if (m) return m[1];
+    }
+    return null;
+  }
+  function extractTitle4(doc) {
+    if (!doc) return "Reliance Digital Product";
+    const selectors = [
+      "h1.pdp__title",
+      "h1.product-title",
+      ".pdp-title",
+      "h1",
+      'meta[property="og:title"]'
+    ];
+    for (const sel of selectors) {
+      const el = doc.querySelector(sel);
+      if (el) {
+        const val = el.tagName === "META" ? el.getAttribute("content") : el.innerText || el.textContent;
+        if (val && val.trim().length > 1) {
+          return val.trim().replace(/\s*-\s*Reliance Digital.*?$/i, "").trim();
+        }
+      }
+    }
+    return "Reliance Digital Product";
+  }
+  function extractPrice4(doc) {
+    let listPrice = 0;
+    let mrp = 0;
+    if (!doc) return { listPrice, mrp };
+    const priceSelectors = [
+      "span.pdp__offerPrice",
+      ".pdp-offer-price",
+      'span[class*="offerPrice"]',
+      ".text-lg.font-bold",
+      ".pdp-price",
+      "span.amount"
+    ];
+    for (const sel of priceSelectors) {
+      const el = doc.querySelector(sel);
+      if (el) {
+        const val = parsePriceFromText(el.innerText || el.textContent || "");
+        if (val > 0) {
+          listPrice = val;
+          break;
+        }
+      }
+    }
+    if (listPrice <= 0) {
+      const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
+      for (const s of scripts) {
+        try {
+          const data = JSON.parse(s.textContent || "{}");
+          if (data.offers && (data.offers.price || data.offers.lowPrice)) {
+            listPrice = parseFloat(data.offers.price || data.offers.lowPrice);
+            break;
+          }
+        } catch (_) {
+        }
+      }
+    }
+    const mrpEl = doc.querySelector('span.pdp__mrpPrice, .strike, span[class*="mrp"]');
+    if (mrpEl) {
+      mrp = parsePriceFromText(mrpEl.innerText || mrpEl.textContent || "");
+    }
+    return { listPrice, mrp };
+  }
+  function extractInstantDiscounts3(doc, listPrice) {
+    let discount = 0;
+    if (!doc) return discount;
+    const offerElements = doc.querySelectorAll('.pdp__offers, .bank-offers, .pdp-bank-offers-list, [class*="bankOffer"]');
+    for (const el of offerElements) {
+      const text = el.innerText || el.textContent || "";
+      const m = text.match(/(?:Instant\s*(?:Discount|Cashback)\s*of\s*(?:₹|Rs\.?)\s*|Flat\s*(?:₹|Rs\.?)\s*|Save\s*(?:₹|Rs\.?)\s*)(\d+(?:,\d+)*)/i);
+      if (m) {
+        discount = Math.max(discount, parsePriceFromText(m[1]));
+      }
+    }
+    if (discount > listPrice * 0.4) discount = 0;
+    return discount;
+  }
+  var RelianceDigitalAdapter = {
+    id: "reliance_digital",
+    matches(url = typeof window !== "undefined" ? window.location.href : "") {
+      if (!url) return false;
+      const u = url.toLowerCase();
+      const isReliance = u.includes("reliancedigital.in") || typeof document !== "undefined" && (document.domain || "").includes("reliancedigital");
+      if (!isReliance) return false;
+      const isProductPage = u.includes("/p/") || /\/p\/[0-9]+/i.test(u);
+      if (isProductPage) return true;
+      if (typeof document !== "undefined") {
+        if (document.querySelector("h1.pdp__title, .pdp__offerPrice, [data-sku]")) {
+          return true;
+        }
+      }
+      return false;
+    },
+    async extract(doc) {
+      try {
+        if (!doc) return null;
+        const productId = extractPid3(doc) || "rd_item_" + Math.abs((doc.title || "").length) % 1e4;
+        const title = extractTitle4(doc);
+        const { listPrice } = extractPrice4(doc);
+        if (listPrice <= 0) return null;
+        let category = "Electronics";
+        const breadcrumb = doc.querySelector('.breadcrumb, [class*="breadcrumb"]');
+        if (breadcrumb && breadcrumb.innerText) {
+          const parts = breadcrumb.innerText.split(">").map((s) => s.trim()).filter(Boolean);
+          if (parts.length > 1) category = parts[1];
+        }
+        const cashDiscount = extractInstantDiscounts3(doc, listPrice);
+        const effectiveCash = Math.max(0, listPrice - cashDiscount);
+        const liveOptions = await UniversalEmiExtractor.extract(doc, listPrice, cashDiscount, "Reliance Digital");
+        const cashOption = {
+          option_id: "cash_full",
+          bank_key: "cash",
+          bank_name: "Cash / UPI",
+          type: "CASH",
+          label: cashDiscount > 0 ? `Full Payment (Includes \u20B9${cashDiscount.toLocaleString("en-IN")} Bank Offer)` : "Full Payment Upfront",
+          tenure_months: 1,
+          monthly_installment: effectiveCash,
+          upfront_downpayment: 0,
+          processing_fee: 0,
+          lost_cash_discount: null,
+          stated_interest_rate: 0
+        };
+        const paymentOptions = [cashOption, ...liveOptions];
+        return {
+          product_id: productId,
+          title,
+          category,
+          retailer: "Reliance Digital",
+          currency: "INR",
+          currency_symbol: "\u20B9",
+          upfront_cash_price: listPrice,
+          cash_discount: cashDiscount,
+          effective_cash_price: effectiveCash,
+          payment_options: paymentOptions
+        };
+      } catch (err) {
+        console.warn("[Paylens RelianceDigitalAdapter] Error extracting listing:", err);
+        return null;
+      }
+    },
+    selectedOptionId(doc) {
+      if (doc) {
+        const text = doc.body ? doc.body.innerText : "";
+        if (/no\s*cost\s*emi/i.test(text)) {
+          return "nocost_hdfc_3m";
+        }
+      }
+      return "std_hdfc_3m";
+    },
+    mountPoint(doc) {
+      if (!doc) return null;
+      const selectors = [
+        ".pdp__priceSection",
+        ".pdp-price-wrap",
+        ".pdp__right",
+        ".product-details",
+        ".pdp__offerPrice"
+      ];
+      for (const sel of selectors) {
+        const el = doc.querySelector(sel);
+        if (el && el.parentNode) {
+          let slot = doc.querySelector("#paylens-reliance-slot");
+          if (!slot) {
+            slot = doc.createElement("div");
+            slot.id = "paylens-reliance-slot";
+            slot.style.margin = "16px 0";
+            el.parentNode.insertBefore(slot, el.nextSibling);
+          }
+          return slot;
+        }
+      }
+      return doc.body || null;
+    },
+    observe(doc, onChange) {
+      if (!doc || typeof onChange !== "function") return () => {
+      };
+      let debounceTimer = null;
+      let lastStateKey = "";
+      const observer = new MutationObserver(() => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(async () => {
+          try {
+            const listing = await Promise.resolve(RelianceDigitalAdapter.extract(doc));
+            const stateKey = listing ? `${listing.product_id}_${listing.upfront_cash_price}_${listing.cash_discount}` : "";
+            if (stateKey && stateKey !== lastStateKey) {
+              lastStateKey = stateKey;
+              onChange({ productId: listing.product_id, optionId: RelianceDigitalAdapter.selectedOptionId(doc) });
+            }
+          } catch (_) {
+          }
+        }, 250);
+      });
+      const target = doc.querySelector(".pdp__priceSection, .pdp__right, body") || doc.body;
+      if (target) {
+        observer.observe(target, { childList: true, subtree: true });
+      }
+      return () => observer.disconnect();
+    }
+  };
+
+  // extension/content/adapters/tata_cliq.js
+  function extractPid4(doc) {
+    if (!doc) return null;
+    const url = doc.defaultView?.location?.href || (typeof window !== "undefined" ? window.location.href : "") || "";
+    const urlMatch = url.match(/p-mp([0-9]+)/i) || url.match(/\/p-([a-z0-9]+)/i) || url.match(/[?&]productId=([a-z0-9]+)/i);
+    if (urlMatch) return urlMatch[1];
+    const metaEl = doc.querySelector('meta[name="productID"], meta[name="productId"], [data-product-id]');
+    if (metaEl) {
+      const val = metaEl.getAttribute("content") || metaEl.getAttribute("data-product-id");
+      if (val && val.trim().length > 0) return val.trim();
+    }
+    const canonical = doc.querySelector('link[rel="canonical"]');
+    if (canonical && canonical.href) {
+      const m = canonical.href.match(/p-mp([0-9]+)/i) || canonical.href.match(/\/p-([a-z0-9]+)/i);
+      if (m) return m[1];
+    }
+    return null;
+  }
+  function extractTitle5(doc) {
+    if (!doc) return "Tata CLiQ Product";
+    const selectors = [
+      "h1.ProductDescriptionPage__title",
+      "h1.ProductDescriptionPage__productName",
+      "h1.pdp-title",
+      ".ProductDescriptionPage__title",
+      "h1",
+      'meta[property="og:title"]'
+    ];
+    for (const sel of selectors) {
+      const el = doc.querySelector(sel);
+      if (el) {
+        const val = el.tagName === "META" ? el.getAttribute("content") : el.innerText || el.textContent;
+        if (val && val.trim().length > 1) {
+          return val.trim().replace(/\s*\|\s*Tata CLiQ.*?$/i, "").trim();
+        }
+      }
+    }
+    return "Tata CLiQ Product";
+  }
+  function extractPrice5(doc) {
+    let listPrice = 0;
+    let mrp = 0;
+    if (!doc) return { listPrice, mrp };
+    const priceSelectors = [
+      "h3.ProductDescriptionPage__price",
+      ".Price__actual",
+      '[class*="ProductDescriptionPage__price"]',
+      ".ProductDescriptionPage__discountPrice",
+      "span.price",
+      "span.amount"
+    ];
+    for (const sel of priceSelectors) {
+      const el = doc.querySelector(sel);
+      if (el) {
+        const val = parsePriceFromText(el.innerText || el.textContent || "");
+        if (val > 0) {
+          listPrice = val;
+          break;
+        }
+      }
+    }
+    if (listPrice <= 0) {
+      const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
+      for (const s of scripts) {
+        try {
+          const data = JSON.parse(s.textContent || "{}");
+          if (data.offers && (data.offers.price || data.offers.lowPrice)) {
+            listPrice = parseFloat(data.offers.price || data.offers.lowPrice);
+            break;
+          }
+        } catch (_) {
+        }
+      }
+    }
+    const mrpEl = doc.querySelector('.ProductDescriptionPage__mrp, .Price__mrp, span[class*="mrp"]');
+    if (mrpEl) {
+      mrp = parsePriceFromText(mrpEl.innerText || mrpEl.textContent || "");
+    }
+    return { listPrice, mrp };
+  }
+  function extractInstantDiscounts4(doc, listPrice) {
+    let discount = 0;
+    if (!doc) return discount;
+    const offerElements = doc.querySelectorAll('.ProductDescriptionPage__offersList, .OffersBlock, .pdp-bank-offers, [class*="bankOffer"]');
+    for (const el of offerElements) {
+      const text = el.innerText || el.textContent || "";
+      const m = text.match(/(?:Instant\s*(?:Discount|Cashback)\s*of\s*(?:₹|Rs\.?)\s*|Flat\s*(?:₹|Rs\.?)\s*|Save\s*(?:₹|Rs\.?)\s*)(\d+(?:,\d+)*)/i);
+      if (m) {
+        discount = Math.max(discount, parsePriceFromText(m[1]));
+      }
+    }
+    if (discount > listPrice * 0.4) discount = 0;
+    return discount;
+  }
+  var TataCliqAdapter = {
+    id: "tata_cliq",
+    matches(url = typeof window !== "undefined" ? window.location.href : "") {
+      if (!url) return false;
+      const u = url.toLowerCase();
+      const isTataCliq = u.includes("tatacliq.com") || typeof document !== "undefined" && (document.domain || "").includes("tatacliq");
+      if (!isTataCliq) return false;
+      const isProductPage = u.includes("/p-") || u.includes("/product/") || /p-mp[0-9]+/i.test(u);
+      if (isProductPage) return true;
+      if (typeof document !== "undefined") {
+        if (document.querySelector('h1.ProductDescriptionPage__title, .ProductDescriptionPage__price, [class*="ProductDescriptionPage"]')) {
+          return true;
+        }
+      }
+      return false;
+    },
+    async extract(doc) {
+      try {
+        if (!doc) return null;
+        const productId = extractPid4(doc) || "tc_item_" + Math.abs((doc.title || "").length) % 1e4;
+        const title = extractTitle5(doc);
+        const { listPrice } = extractPrice5(doc);
+        if (listPrice <= 0) return null;
+        let category = "Fashion & Electronics";
+        const breadcrumb = doc.querySelector('.Breadcrumb, [class*="breadcrumb"]');
+        if (breadcrumb && breadcrumb.innerText) {
+          const parts = breadcrumb.innerText.split(">").map((s) => s.trim()).filter(Boolean);
+          if (parts.length > 1) category = parts[1];
+        }
+        const cashDiscount = extractInstantDiscounts4(doc, listPrice);
+        const effectiveCash = Math.max(0, listPrice - cashDiscount);
+        const liveOptions = await UniversalEmiExtractor.extract(doc, listPrice, cashDiscount, "Tata CliQ");
+        const cashOption = {
+          option_id: "cash_full",
+          bank_key: "cash",
+          bank_name: "Cash / UPI",
+          type: "CASH",
+          label: cashDiscount > 0 ? `Full Payment (Includes \u20B9${cashDiscount.toLocaleString("en-IN")} Bank Offer)` : "Full Payment Upfront",
+          tenure_months: 1,
+          monthly_installment: effectiveCash,
+          upfront_downpayment: 0,
+          processing_fee: 0,
+          lost_cash_discount: null,
+          stated_interest_rate: 0
+        };
+        const paymentOptions = [cashOption, ...liveOptions];
+        return {
+          product_id: productId,
+          title,
+          category,
+          retailer: "Tata CLiQ",
+          currency: "INR",
+          currency_symbol: "\u20B9",
+          upfront_cash_price: listPrice,
+          cash_discount: cashDiscount,
+          effective_cash_price: effectiveCash,
+          payment_options: paymentOptions
+        };
+      } catch (err) {
+        console.warn("[Paylens TataCliqAdapter] Error extracting listing:", err);
+        return null;
+      }
+    },
+    selectedOptionId(doc) {
+      if (doc) {
+        const text = doc.body ? doc.body.innerText : "";
+        if (/no\s*cost\s*emi/i.test(text)) {
+          return "nocost_hdfc_3m";
+        }
+      }
+      return "std_hdfc_3m";
+    },
+    mountPoint(doc) {
+      if (!doc) return null;
+      const selectors = [
+        ".ProductDescriptionPage__priceBlock",
+        ".ProductDescriptionPage__right",
+        ".pdp-right",
+        ".ProductDescriptionPage__price",
+        ".product-details"
+      ];
+      for (const sel of selectors) {
+        const el = doc.querySelector(sel);
+        if (el && el.parentNode) {
+          let slot = doc.querySelector("#paylens-tatacliq-slot");
+          if (!slot) {
+            slot = doc.createElement("div");
+            slot.id = "paylens-tatacliq-slot";
+            slot.style.margin = "16px 0";
+            el.parentNode.insertBefore(slot, el.nextSibling);
+          }
+          return slot;
+        }
+      }
+      return doc.body || null;
+    },
+    observe(doc, onChange) {
+      if (!doc || typeof onChange !== "function") return () => {
+      };
+      let debounceTimer = null;
+      let lastStateKey = "";
+      const observer = new MutationObserver(() => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(async () => {
+          try {
+            const listing = await Promise.resolve(TataCliqAdapter.extract(doc));
+            const stateKey = listing ? `${listing.product_id}_${listing.upfront_cash_price}_${listing.cash_discount}` : "";
+            if (stateKey && stateKey !== lastStateKey) {
+              lastStateKey = stateKey;
+              onChange({ productId: listing.product_id, optionId: TataCliqAdapter.selectedOptionId(doc) });
+            }
+          } catch (_) {
+          }
+        }, 250);
+      });
+      const target = doc.querySelector(".ProductDescriptionPage__priceBlock, .ProductDescriptionPage__right, body") || doc.body;
+      if (target) {
+        observer.observe(target, { childList: true, subtree: true });
+      }
+      return () => observer.disconnect();
     }
   };
 
@@ -2396,7 +3068,11 @@
      * common PDP URL patterns, or Add-to-Cart purchase triggers.
      */
     matches(url = "") {
-      if (typeof document === "undefined") return false;
+      const u = (url || (typeof window !== "undefined" ? window.location?.href : "") || "").toLowerCase();
+      const hasPdpSlug = u.includes("/product/") || u.includes("/products/") || u.includes("/p/") || u.includes("/p-") || u.includes("/dp/") || u.includes("/item/") || u.includes("/itm/") || u.includes("/pd/") || u.includes("/buy") || u.includes("?pid=") || u.includes("?sku=") || u.includes("/catalog/product/view/");
+      if (typeof document === "undefined") {
+        return hasPdpSlug;
+      }
       const jsonLd = getJsonLdProduct2(document);
       if (jsonLd) {
         const offers = jsonLd.offers;
@@ -2415,8 +3091,6 @@
       if (ogType && (ogType === "product" || ogType === "product.item")) {
         return true;
       }
-      const u = (url || (typeof window !== "undefined" ? window.location.href : "")).toLowerCase();
-      const hasPdpSlug = u.includes("/product/") || u.includes("/products/") || u.includes("/p/") || u.includes("/p-") || u.includes("/dp/") || u.includes("/item/") || u.includes("/itm/") || u.includes("/pd/") || u.includes("/buy") || u.includes("?pid=") || u.includes("?sku=") || u.includes("/catalog/product/view/");
       const buyButton = document.querySelector(
         'button[name*="add-to-cart"], button[id*="add-to-cart"], button[id*="buy"], #addToCart, .add-to-cart, .buy-now, .pdp-add-to-bag, .btn-add-to-cart, [data-action*="add-to-cart"]'
       );
@@ -2678,6 +3352,9 @@
     MockShopAdapter,
     AmazonAdapter,
     FlipkartAdapter,
+    CromaAdapter,
+    RelianceDigitalAdapter,
+    TataCliqAdapter,
     GenericAdapter
   ];
   function getAdapter(url = typeof window !== "undefined" ? window.location.href : "") {
@@ -3004,9 +3681,9 @@
       let paymentOptionsHtml = "";
       const paymentOptions = listing?.payment_options || [];
       if (paymentOptions.length > 1) {
-        const activeOptId = selectedOptionId || verdict.selected_option?.option_id || paymentOptions[0].option_id;
-        const activeOpt = paymentOptions.find((o) => o.option_id === activeOptId);
-        const activeOptBank = activeOpt ? getBankForOption(activeOpt) : null;
+        const activeOptId2 = selectedOptionId || verdict.selected_option?.option_id || paymentOptions[0].option_id;
+        const activeOpt2 = paymentOptions.find((o) => o.option_id === activeOptId2);
+        const activeOptBank = activeOpt2 ? getBankForOption(activeOpt2) : null;
         const banks = [];
         for (const opt of paymentOptions) {
           if (opt.type !== "CASH") {
@@ -3029,7 +3706,7 @@
           return getBankForOption(opt) === activeBank;
         });
         const pills = visibleOptions.map((opt) => {
-          const isSelected = opt.option_id === activeOptId;
+          const isSelected = opt.option_id === activeOptId2;
           const isDebit = opt.instrument_type === "DEBIT_CARD" || /debit/i.test(opt.label) || /debit/i.test(opt.option_id);
           const isBnpl = opt.instrument_type === "CARDLESS_BNPL" || /pay\s*later|bajaj/i.test(opt.label) || /paylater|bajaj/i.test(opt.option_id);
           const isNoCost = opt.type === "NO_COST_EMI";
@@ -3047,7 +3724,8 @@
           let displayLabel = opt.label;
           if (opt.type !== "CASH" && activeBank !== "all") {
             const aprSuffix = opt.stated_interest_rate > 0 ? ` \u2022 ${opt.stated_interest_rate}% APR` : " \u2022 0% APR";
-            displayLabel = `${opt.tenure_months} Months${aprSuffix}`;
+            const discountTag = opt.bank_discount > 0 ? ` \u2022 -\u20B9${opt.bank_discount >= 1e3 ? (opt.bank_discount / 1e3).toFixed(opt.bank_discount % 1e3 === 0 ? 0 : 1) + "k" : opt.bank_discount}` : "";
+            displayLabel = `${opt.tenure_months} Months${aprSuffix}${discountTag}`;
           }
           return `
           <button class="option-pill ${isSelected ? "active" : ""}" type="button" data-opt-id="${opt.option_id}" title="${opt.label}">
@@ -3088,11 +3766,11 @@
         </div>
       ` : "";
         let eligibilityBannerHtml = "";
-        if (activeOpt?.eligibility_note) {
+        if (activeOpt2?.eligibility_note) {
           eligibilityBannerHtml = `
           <div class="eligibility-notice-banner">
             <span class="eligibility-icon">\u2139\uFE0F</span>
-            <span class="eligibility-text">${activeOpt.eligibility_note}</span>
+            <span class="eligibility-text">${activeOpt2.eligibility_note}</span>
           </div>
         `;
         }
@@ -3195,6 +3873,72 @@
       `;
       }
       const pillsText = isConverted && originalPrice ? `${currencySymbol}${Number(originalPrice).toLocaleString("en-US")} \u2022 ${badgeIcon} ${level}` : `${badgeIcon} ${level}`;
+      const activeOpt = paymentOptions.find((o) => o.option_id === activeOptId) || verdict.selected_option;
+      const stickerPrice = listing?.upfront_cash_price || listing?.original_price || (listing?.effective_cash_price || 0) + (listing?.cash_discount || 0) || 0;
+      const optBankDiscount = activeOpt?.bank_discount || 0;
+      const hasDiscount = optBankDiscount > 0;
+      const discountBasis = activeOpt?.discount_basis || (hasDiscount ? "Direct Store Bank Partner Discount" : null);
+      const isCash = activeOpt?.type === "CASH" || (activeOpt?.tenure_months || 1) <= 1;
+      const netFinanced = Math.max(1, stickerPrice - optBankDiscount);
+      const monthlyEmi = activeOpt?.monthly_installment || 0;
+      const tenureMonths = activeOpt?.tenure_months || 1;
+      const statedApr = activeOpt?.stated_interest_rate ?? 0;
+      const totalRepayment = totalOutflow > 0 ? totalOutflow : activeOpt?.total_cost || Math.round(monthlyEmi * tenureMonths);
+      const financingBreakdownHtml = `
+      <div class="emi-discount-breakdown-card">
+        <div class="discount-header-row">
+          <div class="discount-pill-wrapper">
+            <span class="discount-tag-badge ${hasDiscount ? "has-discount" : "no-discount"}">
+              ${hasDiscount ? `\u{1F3F7}\uFE0F Bank Offer Applied` : isCash ? "\u{1F4B5} Upfront Cash" : "Standard Bank EMI"}
+            </span>
+            ${hasDiscount ? `<span class="discount-save-tag">-\u20B9${Number(optBankDiscount).toLocaleString("en-IN")} OFF</span>` : ""}
+          </div>
+          <span class="discount-tenure-badge">${isCash ? "Full Payment" : `${tenureMonths}M EMI`}</span>
+        </div>
+
+        ${hasDiscount && discountBasis ? `
+          <div class="discount-basis-box">
+            <div class="basis-header">
+              <span class="basis-icon">\u{1F4CB}</span>
+              <span class="basis-title">Offer Applied On Basis Of:</span>
+            </div>
+            <p class="basis-desc">${discountBasis}</p>
+          </div>
+        ` : ""}
+
+        <div class="financing-summary-table">
+          <div class="summary-line">
+            <span class="summary-label">Product Sticker Price:</span>
+            <span class="summary-val">${_PaylensCard.formatINR(stickerPrice)}</span>
+          </div>
+          ${hasDiscount ? `
+            <div class="summary-line discount-line">
+              <span class="summary-label">Direct Bank EMI Discount:</span>
+              <span class="summary-val discount-val">-\u20B9${Number(optBankDiscount).toLocaleString("en-IN")}</span>
+            </div>
+          ` : ""}
+          <div class="summary-line financed-principal-line">
+            <span class="summary-label">${isCash ? "Effective Cash Price:" : "Real Financed Principal:"}</span>
+            <span class="summary-val financed-val">${_PaylensCard.formatINR(isCash ? stickerPrice - (listing?.cash_discount || 0) : netFinanced)}</span>
+          </div>
+          ${!isCash ? `
+            <div class="summary-line emi-rate-line">
+              <span class="summary-label">Real Monthly Installment:</span>
+              <span class="summary-val emi-val"><strong>${_PaylensCard.formatINR(monthlyEmi)}/mo</strong> (${tenureMonths} mos @ ${statedApr}% APR)</span>
+            </div>
+            <div class="summary-line total-outflow-line">
+              <span class="summary-label">Final Total Amount to Pay:</span>
+              <span class="summary-val total-val"><strong>${_PaylensCard.formatINR(totalRepayment)}</strong></span>
+            </div>
+          ` : `
+            <div class="summary-line total-outflow-line">
+              <span class="summary-label">Final Upfront Cash Outflow:</span>
+              <span class="summary-val total-val"><strong>${_PaylensCard.formatINR(stickerPrice - (listing?.cash_discount || 0))}</strong></span>
+            </div>
+          `}
+        </div>
+      </div>
+    `;
       this.shadowRoot.innerHTML = `
       ${this._getStyleTag()}
 
@@ -3234,6 +3978,9 @@
               </div>
               <p class="headline-reason-text">${verdict.headline_reason || "Affordability evaluation completed."}</p>
             </div>
+
+            <!-- Real-Time EMI Discount & Financing Breakdown Card -->
+            ${financingBreakdownHtml}
 
             <!-- 2. True Cost Box -->
             <div class="true-cost-box">
@@ -3501,7 +4248,8 @@
       }
       card.mount(mountPoint);
       currentListing = listing;
-      const evaluationKey = `${listing.product_id}:${selectedOptionId}`;
+      const activeOptObj = listing.payment_options?.find((o) => o.option_id === selectedOptionId);
+      const evaluationKey = `${listing.product_id}:${selectedOptionId}:${activeOptObj?.monthly_installment}:${activeOptObj?.bank_discount}`;
       if (evaluationKey === lastEvaluationKey) {
         return;
       }

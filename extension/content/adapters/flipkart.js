@@ -17,15 +17,6 @@
  * - observe(document, onChange): () => void
  */
 
-function calculateEmiInstallment(principal, annualRatePercent, months) {
-  if (months <= 1 || annualRatePercent <= 0) {
-    return Math.round((principal / Math.max(1, months)) * 100) / 100;
-  }
-  const monthlyRate = (annualRatePercent / 12) / 100;
-  const emi = (principal * monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
-  return Math.round(emi * 100) / 100;
-}
-
 import { parsePriceFromText } from '../currency.js';
 import { UniversalEmiExtractor } from '../emi_extractor.js';
 
@@ -274,324 +265,7 @@ function extractDiscounts(doc, listPrice) {
   return cashDiscount;
 }
 
-/**
- * Extracts real EMI plans from DOM widgets or embedded window.__INITIAL_STATE__
- */
-function extractFlipkartEmis(doc, listPrice, cashDiscount) {
-  if (!doc) return [];
-  const options = [];
-
-  const knownBanks = [
-    { key: 'hdfc', name: 'HDFC Bank' },
-    { key: 'sbi', name: 'SBI Card' },
-    { key: 'icici', name: 'ICICI Bank' },
-    { key: 'axis', name: 'Flipkart Axis Bank' },
-    { key: 'kotak', name: 'Kotak Bank' },
-    { key: 'bajaj', name: 'Bajaj Finserv', isBnpl: true },
-    { key: 'flipkartpaylater', name: 'Flipkart Pay Later', isBnpl: true },
-    { key: 'onecard', name: 'OneCard' },
-    { key: 'rbl', name: 'RBL Bank' }
-  ];
-
-  // 1. Inspect DOM EMI widgets / tables
-  const emiContainers = doc.querySelectorAll('div._3XINqE, div.row._3q9YpE, div._29jN3X, div._3eA9m-, ._1-8UeG, table.p-1');
-  for (const cont of emiContainers) {
-    const text = cont.innerText || cont.textContent || '';
-    let bankMatch = null;
-    for (const b of knownBanks) {
-      if (text.toLowerCase().includes(b.name.toLowerCase()) || text.toLowerCase().includes(b.key)) {
-        bankMatch = b;
-        break;
-      }
-    }
-
-    const tenureMatch = text.match(/(\d+)\s*(?:months|month|m)\b/i);
-    const priceMatch = text.match(/(?:₹|Rs\.?)\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/i);
-
-    if (tenureMatch && priceMatch) {
-      const tenure = parseInt(tenureMatch[1], 10);
-      const installment = parsePriceFromText(priceMatch[1]);
-      if (tenure >= 3 && tenure <= 36 && installment > 0 && installment < listPrice) {
-        const isDebit = /debit/i.test(text);
-        if (isDebit && listPrice < 5000) continue;
-
-        const isBnpl = /pay\s*later|bajaj/i.test(text) || (bankMatch && bankMatch.isBnpl);
-        const isNoCost = /no\s*cost/i.test(text) || Math.abs((installment * tenure) - listPrice) < 5 || (bankMatch?.key === 'bajaj');
-        const rateMatch = text.match(/(\d+(?:\.\d+)?)\s*%/);
-        const statedRate = isNoCost ? 0.0 : (rateMatch ? parseFloat(rateMatch[1]) : (isDebit ? 16.0 : 14.5));
-
-        const instrumentType = isDebit ? 'DEBIT_CARD' : (isBnpl ? 'CARDLESS_BNPL' : 'CREDIT_CARD');
-        const bankKey = bankMatch ? bankMatch.key : (isDebit ? 'debit' : (isBnpl ? 'bnpl' : 'flipkart_partner'));
-        let bankName = bankMatch ? bankMatch.name : (isDebit ? 'Debit Card EMI' : 'Flipkart Partner Bank');
-
-        let fee = 199.0;
-        let eligibilityNote = null;
-        if (bankKey === 'bajaj') {
-          fee = 117.0;
-          eligibilityNote = "Requires active Bajaj Finserv EMI Network Card. Zero cost EMI with ₹117 processing fee.";
-        } else if (bankKey === 'flipkartpaylater') {
-          fee = 0.0;
-          eligibilityNote = "Instant credit line up to ₹1,00,000. Requires PAN & Aadhaar verification on Flipkart.";
-        } else if (isDebit) {
-          if (!bankName.includes('Debit')) bankName = `${bankName} (Debit Card)`;
-          eligibilityNote = "Pre-approved bank debit cardholders only (min order ₹5,000). Check with your issuing bank via SMS.";
-        }
-
-        const prefix = isNoCost ? 'nocost' : 'std';
-        const typePrefix = isDebit ? 'debit_' : (isBnpl ? 'bnpl_' : '');
-        const optId = `${prefix}_${typePrefix}${bankKey}_${tenure}m`;
-
-        if (!options.some(o => o.option_id === optId)) {
-          options.push({
-            option_id: optId,
-            instrument_type: instrumentType,
-            bank_key: bankKey,
-            bank_name: bankName,
-            type: isNoCost ? 'NO_COST_EMI' : 'STANDARD_EMI',
-            label: isNoCost
-              ? `${bankName} No-Cost EMI (${tenure} Months)`
-              : `${bankName} Standard EMI (${tenure} Months @ ${statedRate}% APR)`,
-            tenure_months: tenure,
-            monthly_installment: installment,
-            upfront_downpayment: 0.0,
-            processing_fee: fee,
-            lost_cash_discount: cashDiscount,
-            stated_interest_rate: statedRate,
-            eligibility_note: eligibilityNote
-          });
-        }
-      }
-    }
-  }
-
-/**
- * Extracts balanced JSON object string from a script element containing window.__INITIAL_STATE__
- * Reverse-engineered from Buyhatke utility_all2:595422
- */
-function extractJsonFromScriptText(text, varName = 'window.__INITIAL_STATE__') {
-  if (!text) return null;
-  const escaped = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = text.match(new RegExp(escaped + '\\s*=\\s*\\{'));
-  if (!match) return null;
-
-  const startIdx = match.index + match[0].length - 1;
-  let depth = 0;
-  let inString = false;
-  let isEscaped = false;
-  let endIdx = -1;
-
-  for (let i = startIdx; i < text.length; i++) {
-    const char = text[i];
-    if (isEscaped) {
-      isEscaped = false;
-      continue;
-    }
-    if (char === '\\' && inString) {
-      isEscaped = true;
-      continue;
-    }
-    if (char === '"') {
-      inString = !inString;
-      continue;
-    }
-    if (!inString) {
-      if (char === '{') {
-        depth++;
-      } else if (char === '}') {
-        depth--;
-        if (depth === 0) {
-          endIdx = i;
-          break;
-        }
-      }
-    }
-  }
-
-  if (endIdx !== -1) {
-    try {
-      return JSON.parse(text.slice(startIdx, endIdx + 1));
-    } catch (_) {
-      return null;
-    }
-  }
-  return null;
-}
-
-function walkStateForEmis(obj, listPrice, cashDiscount, options, knownBanks, depth = 0) {
-  if (!obj || typeof obj !== 'object' || depth > 8) return;
-
-  if (Array.isArray(obj)) {
-    for (const item of obj) {
-      walkStateForEmis(item, listPrice, cashDiscount, options, knownBanks, depth + 1);
-    }
-    return;
-  }
-
-  // Check for installment/EMI structure
-  if (obj.tenure && (obj.monthlyInstallment || obj.monthlyAmount || obj.installmentAmount)) {
-    const tenure = parseInt(obj.tenure, 10);
-    const installment = parseFloat(obj.monthlyInstallment || obj.monthlyAmount || obj.installmentAmount);
-    if (tenure >= 3 && tenure <= 36 && installment > 0 && installment < listPrice) {
-      const bankRaw = String(obj.bankName || obj.bank || obj.title || 'Flipkart Verified Bank');
-      let bankName = bankRaw;
-      for (const b of knownBanks) {
-        if (bankRaw.toLowerCase().includes(b.name.toLowerCase()) || bankRaw.toLowerCase().includes(b.key)) {
-          bankName = b.name;
-          break;
-        }
-      }
-      const isNoCost = Boolean(obj.isNoCost || obj.subventionAmount > 0 || Math.abs((installment * tenure) - listPrice) < 5);
-      const statedRate = isNoCost ? 0.0 : (parseFloat(obj.rate || obj.interestRate || obj.apr) || 14.5);
-      const bankSlug = bankName.toLowerCase().replace(/[^a-z0-9]/g, '');
-      const optId = isNoCost ? `nocost_${bankSlug}_${tenure}m` : `std_${bankSlug}_${tenure}m`;
-
-      if (!options.some(o => o.option_id === optId)) {
-        options.push({
-          option_id: optId,
-          type: isNoCost ? 'NO_COST_EMI' : 'STANDARD_EMI',
-          label: isNoCost
-            ? `${bankName} No-Cost EMI (${tenure} Months)`
-            : `${bankName} Standard EMI (${tenure} Months @ ${statedRate}% APR)`,
-          tenure_months: tenure,
-          monthly_installment: Math.round(installment * 100) / 100,
-          upfront_downpayment: 0.0,
-          processing_fee: 199.0,
-          lost_cash_discount: cashDiscount,
-          stated_interest_rate: statedRate
-        });
-      }
-    }
-  }
-
-  for (const key of Object.keys(obj)) {
-    if (typeof obj[key] === 'object' && obj[key] !== null) {
-      walkStateForEmis(obj[key], listPrice, cashDiscount, options, knownBanks, depth + 1);
-    }
-  }
-}
-
-  // 2. Buyhatke exact script parsing: script#is_script or scripts containing __INITIAL_STATE__
-  try {
-    const isScript = doc.getElementById('is_script');
-    const scripts = isScript ? [isScript] : Array.from(doc.querySelectorAll('script'));
-    for (const s of scripts) {
-      const content = s.textContent || '';
-      if (!content.includes('__INITIAL_STATE__') && !content.includes('EMI_OFFER_PILL') && !content.includes('installmentPlans')) {
-        continue;
-      }
-
-      // Try balanced-braces JSON parsing
-      const stateObj = extractJsonFromScriptText(content, 'window.__INITIAL_STATE__');
-      if (stateObj) {
-        walkStateForEmis(stateObj, listPrice, cashDiscount, options, knownBanks);
-      }
-
-      // Regex fallback for minified substrings
-      const tenureMatches = content.matchAll(/"tenure":\s*(\d+)[^}]+?"monthlyInstallment":\s*([0-9.]+)/g);
-      for (const tm of tenureMatches) {
-        const tenure = parseInt(tm[1], 10);
-        const installment = parseFloat(tm[2]);
-        if (tenure >= 3 && tenure <= 36 && installment > 0 && installment < listPrice) {
-          const isNoCost = Math.abs((installment * tenure) - listPrice) < 5;
-          const optId = isNoCost ? `nocost_fk_${tenure}m` : `std_fk_${tenure}m`;
-          if (!options.some(o => o.option_id === optId)) {
-            options.push({
-              option_id: optId,
-              type: isNoCost ? 'NO_COST_EMI' : 'STANDARD_EMI',
-              label: isNoCost
-                ? `Flipkart Verified No-Cost EMI (${tenure} Months)`
-                : `Flipkart Standard EMI (${tenure} Months @ 14.5% APR)`,
-              tenure_months: tenure,
-              monthly_installment: Math.round(installment * 100) / 100,
-              upfront_downpayment: 0.0,
-              processing_fee: 199.0,
-              lost_cash_discount: cashDiscount,
-              stated_interest_rate: isNoCost ? 0.0 : 14.5
-            });
-          }
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('[Paylens FlipkartAdapter] Error inspecting __INITIAL_STATE__ script:', err);
-  }
-
-  return options;
-}
-
-/**
- * Builds verified fallback payment options with standard Indian bank schedules
- */
-function buildFallbackPaymentOptions(listPrice, effectiveCash, cashDiscount, hasNoCostEmi) {
-  const stdFee = 199.0;
-  const options = [
-    {
-      option_id: 'cash_full',
-      type: 'CASH',
-      label: cashDiscount > 0
-        ? `Full Payment (Includes ₹${cashDiscount.toLocaleString('en-IN')} Bank Offer)`
-        : 'Full Payment Upfront',
-      tenure_months: 1,
-      monthly_installment: effectiveCash,
-      upfront_downpayment: 0.0,
-      processing_fee: 0.0,
-      lost_cash_discount: null,
-      stated_interest_rate: 0.0
-    }
-  ];
-
-  if (hasNoCostEmi || listPrice >= 3000) {
-    options.push({
-      option_id: 'nocost_3m',
-      type: 'NO_COST_EMI',
-      label: 'No-Cost EMI (3 Months — Flipkart Axis/HDFC)',
-      tenure_months: 3,
-      monthly_installment: Math.round((listPrice / 3) * 100) / 100,
-      upfront_downpayment: 0.0,
-      processing_fee: stdFee,
-      lost_cash_discount: cashDiscount,
-      stated_interest_rate: 0.0
-    });
-
-    options.push({
-      option_id: 'nocost_6m',
-      type: 'NO_COST_EMI',
-      label: 'No-Cost EMI (6 Months — SBI/ICICI/Kotak)',
-      tenure_months: 6,
-      monthly_installment: Math.round((listPrice / 6) * 100) / 100,
-      upfront_downpayment: 0.0,
-      processing_fee: stdFee,
-      lost_cash_discount: cashDiscount,
-      stated_interest_rate: 0.0
-    });
-  }
-
-  options.push({
-    option_id: 'std_9m',
-    type: 'STANDARD_EMI',
-    label: 'Standard EMI (9 Months @ 14% APR — HDFC/SBI)',
-    tenure_months: 9,
-    monthly_installment: calculateEmiInstallment(listPrice, 14.0, 9),
-    upfront_downpayment: 0.0,
-    processing_fee: stdFee,
-    lost_cash_discount: cashDiscount,
-    stated_interest_rate: 14.0
-  });
-
-  options.push({
-    option_id: 'std_12m',
-    type: 'STANDARD_EMI',
-    label: 'Standard EMI (12 Months @ 15% APR — Axis/Kotak)',
-    tenure_months: 12,
-    monthly_installment: calculateEmiInstallment(listPrice, 15.0, 12),
-    upfront_downpayment: 0.0,
-    processing_fee: stdFee,
-    lost_cash_discount: cashDiscount,
-    stated_interest_rate: 15.0
-  });
-
-  return options;
-}
+// UniversalEmiExtractor provides universal, ground-truth bank EMI extraction across modals, drawers, and bank subventions.
 
 export const FlipkartAdapter = {
   id: 'flipkart',
@@ -652,30 +326,27 @@ export const FlipkartAdapter = {
       const pageText = (doc.body ? doc.body.innerText : '');
       const hasNoCostEmi = pageText.includes('No Cost EMI') || pageText.includes('No cost EMI');
 
-      // 7. Extract real EMI plans or fallback to verified schedules
-      let realEmis = extractFlipkartEmis(doc, listPrice, cashDiscount);
-      if (!realEmis || realEmis.length === 0) {
-        realEmis = await UniversalEmiExtractor.extract(doc, listPrice, cashDiscount, 'Flipkart');
-      }
+      // 7. Extract real EMI plans via UniversalEmiExtractor
+      let realEmis = await UniversalEmiExtractor.extract(doc, listPrice, cashDiscount, 'Flipkart');
       let paymentOptions = [];
 
-      if (realEmis && realEmis.length > 0) {
-        const cashOption = {
-          option_id: 'cash_full',
-          bank_key: 'cash',
-          bank_name: 'Cash / UPI',
-          type: 'CASH',
-          label: cashDiscount > 0
-            ? `Full Payment (Includes ₹${cashDiscount.toLocaleString('en-IN')} Bank Offer)`
-            : 'Full Payment Upfront',
-          tenure_months: 1,
-          monthly_installment: effectiveCash,
-          upfront_downpayment: 0.0,
-          processing_fee: 0.0,
-          lost_cash_discount: null,
-          stated_interest_rate: 0.0
-        };
+      const cashOption = {
+        option_id: 'cash_full',
+        bank_key: 'cash',
+        bank_name: 'Cash / UPI',
+        type: 'CASH',
+        label: cashDiscount > 0
+          ? `Full Payment (Includes ₹${cashDiscount.toLocaleString('en-IN')} Bank Offer)`
+          : 'Full Payment Upfront',
+        tenure_months: 1,
+        monthly_installment: effectiveCash,
+        upfront_downpayment: 0.0,
+        processing_fee: 0.0,
+        lost_cash_discount: null,
+        stated_interest_rate: 0.0
+      };
 
+      if (realEmis && realEmis.length > 0) {
         const topNoCost = realEmis.find(o => o.type === 'NO_COST_EMI');
         if (topNoCost && !realEmis.some(o => o.option_id === 'nocost_6m')) {
           realEmis.unshift({
@@ -685,7 +356,7 @@ export const FlipkartAdapter = {
         }
         paymentOptions = [cashOption, ...realEmis];
       } else {
-        paymentOptions = buildFallbackPaymentOptions(listPrice, effectiveCash, cashDiscount, hasNoCostEmi);
+        paymentOptions = [cashOption];
       }
 
       return {
@@ -709,16 +380,57 @@ export const FlipkartAdapter = {
   },
 
   /**
-   * Default selected option ID (prefers 6M No-Cost EMI if available, else standard Axis/HDFC 3M).
+   * Default selected option ID:
+   * 1. Detects live active bank & tenure in any open EMI modal
+   * 2. Promotes featured bank offers (e.g. ICICI Bank Flat ₹5,500 off)
+   * 3. Defaults to 6M ICICI / HDFC EMI
    */
   selectedOptionId(doc) {
-    const offerContainers = doc ? doc.querySelectorAll('div._3XINqE, div._29jN3X, div._3eA9m-, [class*="offer"]') : [];
-    for (const c of offerContainers) {
-      if (/no\s*cost\s*emi/i.test(c.innerText || '')) {
-        return 'nocost_6m';
+    if (!doc) return 'std_icici_6m';
+
+    // 1. If an EMI modal is open in the DOM, detect active bank and selected tenure
+    const modalContainers = doc.querySelectorAll(
+      '[role="dialog"], [class*="modal" i], [class*="overlay" i], div._10Ermr, div._2rQPcW, div._1k9_yB, div.fk-modal-portal'
+    );
+    for (const cont of modalContainers) {
+      const text = cont.innerText || cont.textContent || '';
+      if (!text.includes('Installment') && !text.includes('Interest') && !text.includes('EMI')) continue;
+
+      const activeBank = UniversalEmiExtractor.extractActiveBankFromContainer(cont);
+      const bKey = activeBank ? activeBank.key : 'icici';
+
+      // Check for checked radio or selected option row
+      const checkedInput = cont.querySelector('input[type="radio"]:checked, [aria-checked="true"], [class*="selected"], [class*="active"]');
+      if (checkedInput) {
+        const rowEl = checkedInput.closest('tr, [class*="row"], [class*="item"], li, label, div') || checkedInput;
+        const rowText = rowEl.innerText || rowEl.textContent || '';
+        const tm = rowText.match(/(\d+)\s*(?:months?|m)\b/i);
+        if (tm) {
+          const m = parseInt(tm[1], 10);
+          return `std_${bKey}_${m}m`;
+        }
       }
+
+      return `std_${bKey}_6m`;
     }
-    return 'std_axis_3m';
+
+    // 2. Check for on-page PDP Bank Offers (e.g. ICICI Bank Flat ₹5,500 off)
+    const pageText = (doc.body ? doc.body.innerText : '') || '';
+    if (/ICICI/i.test(pageText) && /(?:Bank\s*Offer|discount|off|flat)[^\n.]*?ICICI/i.test(pageText)) {
+      return 'std_icici_6m';
+    }
+    if (/HDFC/i.test(pageText) && /(?:Bank\s*Offer|discount|off|flat)[^\n.]*?HDFC/i.test(pageText)) {
+      return 'std_hdfc_6m';
+    }
+    if (/Axis/i.test(pageText) && /(?:Bank\s*Offer|discount|off|flat)[^\n.]*?Axis/i.test(pageText)) {
+      return 'std_axis_6m';
+    }
+
+    if (/no\s*cost\s*emi/i.test(pageText)) {
+      return 'nocost_6m';
+    }
+
+    return 'std_icici_6m';
   },
 
   /**
@@ -783,7 +495,10 @@ export const FlipkartAdapter = {
             return;
           }
           const listing = await Promise.resolve(FlipkartAdapter.extract(doc));
-          const stateKey = listing ? `${listing.product_id}_${listing.upfront_cash_price}_${listing.cash_discount}` : '';
+          const hasModal = Boolean(doc.querySelector('[role="dialog"], [class*="modal" i], [class*="overlay" i], div._10Ermr, div._2rQPcW'));
+          const stateKey = listing
+            ? `${listing.product_id}_${listing.upfront_cash_price}_${listing.cash_discount}_${listing.payment_options?.length || 0}_${hasModal ? 'modal' : 'nomodal'}`
+            : '';
           if (stateKey && stateKey !== lastStateKey) {
             lastStateKey = stateKey;
             onChange({ productId: listing.product_id, optionId: FlipkartAdapter.selectedOptionId(doc) });
@@ -800,7 +515,7 @@ export const FlipkartAdapter = {
       notify();
     });
 
-    const target = doc.querySelector('div.col-8-12') || doc.body;
+    const target = doc.body || doc.querySelector('div.col-8-12') || doc.documentElement;
     if (target) {
       observer.observe(target, { childList: true, subtree: true });
     }

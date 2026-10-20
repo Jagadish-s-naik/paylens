@@ -413,7 +413,8 @@ export class PaylensCard {
         let displayLabel = opt.label;
         if (opt.type !== 'CASH' && activeBank !== 'all') {
           const aprSuffix = opt.stated_interest_rate > 0 ? ` • ${opt.stated_interest_rate}% APR` : ' • 0% APR';
-          displayLabel = `${opt.tenure_months} Months${aprSuffix}`;
+          const discountTag = opt.bank_discount > 0 ? ` • -₹${(opt.bank_discount >= 1000 ? (opt.bank_discount / 1000).toFixed(opt.bank_discount % 1000 === 0 ? 0 : 1) + 'k' : opt.bank_discount)}` : '';
+          displayLabel = `${opt.tenure_months} Months${aprSuffix}${discountTag}`;
         }
 
         return `
@@ -597,6 +598,74 @@ export class PaylensCard {
       ? `${currencySymbol}${Number(originalPrice).toLocaleString('en-US')} • ${badgeIcon} ${level}`
       : `${badgeIcon} ${level}`;
 
+    const activeOpt = paymentOptions.find(o => o.option_id === activeOptId) || verdict.selected_option;
+    const stickerPrice = listing?.upfront_cash_price || listing?.original_price || ((listing?.effective_cash_price || 0) + (listing?.cash_discount || 0)) || 0;
+    const optBankDiscount = activeOpt?.bank_discount || 0.0;
+    const hasDiscount = optBankDiscount > 0;
+    const discountBasis = activeOpt?.discount_basis || (hasDiscount ? 'Direct Store Bank Partner Discount' : null);
+    const isCash = activeOpt?.type === 'CASH' || (activeOpt?.tenure_months || 1) <= 1;
+    const netFinanced = Math.max(1, stickerPrice - optBankDiscount);
+    const monthlyEmi = activeOpt?.monthly_installment || 0.0;
+    const tenureMonths = activeOpt?.tenure_months || 1;
+    const statedApr = activeOpt?.stated_interest_rate ?? 0.0;
+    const totalRepayment = totalOutflow > 0 ? totalOutflow : (activeOpt?.total_cost || Math.round(monthlyEmi * tenureMonths));
+
+    const financingBreakdownHtml = `
+      <div class="emi-discount-breakdown-card">
+        <div class="discount-header-row">
+          <div class="discount-pill-wrapper">
+            <span class="discount-tag-badge ${hasDiscount ? 'has-discount' : 'no-discount'}">
+              ${hasDiscount ? `🏷️ Bank Offer Applied` : (isCash ? '💵 Upfront Cash' : 'Standard Bank EMI')}
+            </span>
+            ${hasDiscount ? `<span class="discount-save-tag">-₹${Number(optBankDiscount).toLocaleString('en-IN')} OFF</span>` : ''}
+          </div>
+          <span class="discount-tenure-badge">${isCash ? 'Full Payment' : `${tenureMonths}M EMI`}</span>
+        </div>
+
+        ${hasDiscount && discountBasis ? `
+          <div class="discount-basis-box">
+            <div class="basis-header">
+              <span class="basis-icon">📋</span>
+              <span class="basis-title">Offer Applied On Basis Of:</span>
+            </div>
+            <p class="basis-desc">${discountBasis}</p>
+          </div>
+        ` : ''}
+
+        <div class="financing-summary-table">
+          <div class="summary-line">
+            <span class="summary-label">Product Sticker Price:</span>
+            <span class="summary-val">${PaylensCard.formatINR(stickerPrice)}</span>
+          </div>
+          ${hasDiscount ? `
+            <div class="summary-line discount-line">
+              <span class="summary-label">Direct Bank EMI Discount:</span>
+              <span class="summary-val discount-val">-₹${Number(optBankDiscount).toLocaleString('en-IN')}</span>
+            </div>
+          ` : ''}
+          <div class="summary-line financed-principal-line">
+            <span class="summary-label">${isCash ? 'Effective Cash Price:' : 'Real Financed Principal:'}</span>
+            <span class="summary-val financed-val">${PaylensCard.formatINR(isCash ? (stickerPrice - (listing?.cash_discount || 0)) : netFinanced)}</span>
+          </div>
+          ${!isCash ? `
+            <div class="summary-line emi-rate-line">
+              <span class="summary-label">Real Monthly Installment:</span>
+              <span class="summary-val emi-val"><strong>${PaylensCard.formatINR(monthlyEmi)}/mo</strong> (${tenureMonths} mos @ ${statedApr}% APR)</span>
+            </div>
+            <div class="summary-line total-outflow-line">
+              <span class="summary-label">Final Total Amount to Pay:</span>
+              <span class="summary-val total-val"><strong>${PaylensCard.formatINR(totalRepayment)}</strong></span>
+            </div>
+          ` : `
+            <div class="summary-line total-outflow-line">
+              <span class="summary-label">Final Upfront Cash Outflow:</span>
+              <span class="summary-val total-val"><strong>${PaylensCard.formatINR(stickerPrice - (listing?.cash_discount || 0))}</strong></span>
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+
     // Render Floating Launcher & Copilot Panel
     this.shadowRoot.innerHTML = `
       ${this._getStyleTag()}
@@ -637,6 +706,9 @@ export class PaylensCard {
               </div>
               <p class="headline-reason-text">${verdict.headline_reason || 'Affordability evaluation completed.'}</p>
             </div>
+
+            <!-- Real-Time EMI Discount & Financing Breakdown Card -->
+            ${financingBreakdownHtml}
 
             <!-- 2. True Cost Box -->
             <div class="true-cost-box">

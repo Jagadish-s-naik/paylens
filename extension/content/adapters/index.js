@@ -6,12 +6,18 @@
 import { MockShopAdapter } from './mock_shop.js';
 import { AmazonAdapter } from './amazon.js';
 import { FlipkartAdapter } from './flipkart.js';
+import { CromaAdapter } from './croma.js';
+import { RelianceDigitalAdapter } from './reliance_digital.js';
+import { TataCliqAdapter } from './tata_cliq.js';
 import { GenericAdapter } from './generic.js';
 
 export const ADAPTERS = [
   MockShopAdapter,
   AmazonAdapter,
   FlipkartAdapter,
+  CromaAdapter,
+  RelianceDigitalAdapter,
+  TataCliqAdapter,
   GenericAdapter
 ];
 

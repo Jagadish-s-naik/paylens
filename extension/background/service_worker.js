@@ -212,8 +212,10 @@ async function handleAfford(payload) {
 
   // 3. Live API Branch
   const installId = await getOrCreateInstallId();
-  const endpoint = `${CONFIG.API_BASE}/api/afford`;
-  const result = await fetchWithRetry(
+  const apiBase = await getEffectiveApiBase();
+  const endpoint = `${apiBase}/api/afford`;
+
+  let result = await fetchWithRetry(
     endpoint,
     {
       method: 'POST',
@@ -230,11 +232,57 @@ async function handleAfford(payload) {
     1 // 1 retry on network error per ARCHITECTURE.md §8.3
   );
 
+  // If local API connection failed, try Cloud Run production fallback
+  if (!result.ok && apiBase.includes('localhost') && CONFIG.CLOUD_RUN_BASE) {
+    console.warn('[Paylens SW] Local API unreachable, trying Cloud Run fallback...');
+    result = await fetchWithRetry(
+      `${CONFIG.CLOUD_RUN_BASE}/api/afford`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Install-Id': installId
+        },
+        body: JSON.stringify({
+          profile: profile,
+          listing: payload.listing,
+          selected_option_id: payload.selectedOptionId
+        })
+      },
+      0
+    );
+  }
+
+  // Graceful fallback to client-side deterministic evaluation if all live endpoints fail
+  if (!result.ok) {
+    console.warn('[Paylens SW] Live backend unreachable, computing verdict via local engine...');
+    const localVerdict = resolveMockVerdict({
+      productId: payload.listing.product_id,
+      optionId: payload.selectedOptionId,
+      profileId: profile.profile_id,
+      profile: profile,
+      listing: payload.listing
+    });
+    await chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.LAST_VERDICT]: localVerdict });
+    return { ok: true, data: localVerdict };
+  }
+
   if (result.ok && result.data) {
     await chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.LAST_VERDICT]: result.data });
   }
 
   return result;
+}
+
+async function getEffectiveApiBase() {
+  try {
+    const settingsKey = CONFIG.STORAGE_KEYS.SETTINGS;
+    const data = await chrome.storage.local.get(settingsKey);
+    if (data && data[settingsKey] && data[settingsKey].apiBase) {
+      return data[settingsKey].apiBase;
+    }
+  } catch (_) {}
+  return CONFIG.API_BASE || 'http://localhost:8000';
 }
 
 /**
@@ -257,8 +305,9 @@ async function handleExplain(payload) {
 
   // Live API Branch
   const installId = await getOrCreateInstallId();
-  const endpoint = `${CONFIG.API_BASE}/api/afford/explain`;
-  return await fetchWithRetry(
+  const apiBase = await getEffectiveApiBase();
+  const endpoint = `${apiBase}/api/afford/explain`;
+  let result = await fetchWithRetry(
     endpoint,
     {
       method: 'POST',
@@ -273,6 +322,30 @@ async function handleExplain(payload) {
     },
     0 // No retries for AI routes per rate-limit rules
   );
+
+  if (!result.ok && apiBase.includes('localhost') && CONFIG.CLOUD_RUN_BASE) {
+    result = await fetchWithRetry(
+      `${CONFIG.CLOUD_RUN_BASE}/api/afford/explain`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Install-Id': installId
+        },
+        body: JSON.stringify({
+          verdict: payload.verdict,
+          language: lang
+        })
+      },
+      0
+    );
+  }
+
+  if (!result.ok) {
+    return { ok: true, data: getMockExplanation(payload.verdict, lang) };
+  }
+
+  return result;
 }
 
 /**

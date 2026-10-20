@@ -38,7 +38,15 @@ export const GenericAdapter = {
    * common PDP URL patterns, or Add-to-Cart purchase triggers.
    */
   matches(url = '') {
-    if (typeof document === 'undefined') return false;
+    const u = (url || (typeof window !== 'undefined' ? window.location?.href : '') || '').toLowerCase();
+    const hasPdpSlug = u.includes('/product/') || u.includes('/products/') || u.includes('/p/') ||
+                       u.includes('/p-') || u.includes('/dp/') || u.includes('/item/') || u.includes('/itm/') ||
+                       u.includes('/pd/') || u.includes('/buy') || u.includes('?pid=') || u.includes('?sku=') ||
+                       u.includes('/catalog/product/view/');
+
+    if (typeof document === 'undefined') {
+      return hasPdpSlug;
+    }
 
     // 1. Schema.org Product JSON-LD
     const jsonLd = getJsonLdProduct(document);
@@ -62,14 +70,7 @@ export const GenericAdapter = {
       return true;
     }
 
-    // 3. Common E-Commerce URL Patterns
-    const u = (url || (typeof window !== 'undefined' ? window.location.href : '')).toLowerCase();
-    const hasPdpSlug = u.includes('/product/') || u.includes('/products/') || u.includes('/p/') ||
-                       u.includes('/p-') || u.includes('/dp/') || u.includes('/item/') || u.includes('/itm/') ||
-                       u.includes('/pd/') || u.includes('/buy') || u.includes('?pid=') || u.includes('?sku=') ||
-                       u.includes('/catalog/product/view/');
-
-    // 4. Cart / Buy Button heuristics
+    // 3. Cart / Buy Button heuristics
     const buyButton = document.querySelector(
       'button[name*="add-to-cart"], button[id*="add-to-cart"], button[id*="buy"], ' +
       '#addToCart, .add-to-cart, .buy-now, .pdp-add-to-bag, .btn-add-to-cart, [data-action*="add-to-cart"]'
